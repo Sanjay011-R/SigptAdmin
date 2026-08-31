@@ -1,0 +1,130 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-sans: 'Sora', sans-serif;
+    --font-heading: 'Poppins', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: #FFFFFF;
+    --foreground: #0B192C;
+    --card: #FFFFFF;
+    --card-foreground: #0B192C;
+    --popover: #FFFFFF;
+    --popover-foreground: #0B192C;
+    --primary: #FF7F50;
+    --primary-foreground: #FFFFFF;
+    --secondary: #FFDAB9;
+    --secondary-foreground: #0B192C;
+    --muted: #F8ECE4;
+    --muted-foreground: #7C6E65;
+    --accent: #FFDAB9;
+    --accent-foreground: #0B192C;
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: #F3E2D5;
+    --input: #F3E2D5;
+    --ring: #FF7F50;
+    --chart-1: #FF7F50;
+    --chart-2: #FFDAB9;
+    --chart-3: #0B192C;
+    --chart-4: #F8ECE4;
+    --chart-5: #2A384C;
+    --radius: 0.625rem;
+    --sidebar: #0B192C;
+    --sidebar-foreground: #FFF5EE;
+    --sidebar-primary: #FF7F50;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #152744;
+    --sidebar-accent-foreground: #FFDAB9;
+    --sidebar-border: #1B2B45;
+    --sidebar-ring: #FF7F50;
+}
+
+.dark {
+    --background: #0B192C;
+    --foreground: #FFF5EE;
+    --card: #12233C;
+    --card-foreground: #FFF5EE;
+    --popover: #12233C;
+    --popover-foreground: #FFF5EE;
+    --primary: #FF7F50;
+    --primary-foreground: #FFFFFF;
+    --secondary: #1B2B45;
+    --secondary-foreground: #FFDAB9;
+    --muted: #182840;
+    --muted-foreground: #A0B0C8;
+    --accent: #1B2B45;
+    --accent-foreground: #FFDAB9;
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: #1D2E49;
+    --input: #1D2E49;
+    --ring: #FF7F50;
+    --chart-1: #FF7F50;
+    --chart-2: #FFDAB9;
+    --chart-3: #708090;
+    --chart-4: #374151;
+    --chart-5: #1F2937;
+    --sidebar: #071220;
+    --sidebar-foreground: #FFF5EE;
+    --sidebar-primary: #FF7F50;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #12233C;
+    --sidebar-accent-foreground: #FFDAB9;
+    --sidebar-border: #182840;
+    --sidebar-ring: #FF7F50;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body, html {
+    @apply bg-background text-foreground;
+    font-family: 'Sora', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+  }
+}
