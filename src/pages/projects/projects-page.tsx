@@ -20,6 +20,9 @@ import {
   Pencil,
   Trash2,
   FolderKanban,
+  Loader2,
+  AlertTriangle,
+  X,
 } from "lucide-react"
 
 const STATUS_OPTIONS: ComboboxOption[] = [
@@ -43,6 +46,8 @@ export function ProjectsPage() {
   const [page, setPage] = useState<number>(1)
   const [loading, setLoading] = useState<boolean>(false)
   const [projects, setProjects] = useState<ProjectRecord[]>([])
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState<boolean>(false)
 
   const loadProjectsList = async () => {
     const list = await fetchProjects()
@@ -54,17 +59,28 @@ export function ProjectsPage() {
     loadProjectsList()
   }, [logPageView])
 
-  const handleDelete = async (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete project '${name}'?`)) {
-      await deleteProject(id)
+  const handleDelete = (id: string, name: string) => {
+    setDeleteTarget({ id, name })
+  }
+
+  const confirmDeleteProject = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteProject(deleteTarget.id)
       await loadProjectsList()
       await logStateMutation({
         category: "Jobs",
         action: "Project Deleted",
         type: "delete",
-        targetEntity: `${id} (${name})`,
-        details: `Deleted recruitment project ${id}.`,
+        targetEntity: `${deleteTarget.id} (${deleteTarget.name})`,
+        details: `Deleted recruitment project ${deleteTarget.id}.`,
       })
+    } catch (err) {
+      console.error("Failed to delete project:", err)
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -397,6 +413,75 @@ export function ProjectsPage() {
           </div>
         )}
       </div>
+
+      {/* Modern Custom Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => !deleting && setDeleteTarget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-100 flex flex-col gap-5 text-gray-900 animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                  <AlertTriangle className="w-5.5 h-5.5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900">Delete Recruitment Project</h3>
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">
+                    This action is permanent and cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <button
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-200/80 text-xs font-mono text-gray-700">
+              <span className="text-gray-400 font-bold block text-[10px] uppercase mb-0.5">Target Project</span>
+              <strong className="text-gray-900 font-sans font-bold text-sm block truncate">{deleteTarget.name}</strong>
+              <span className="text-gray-400 text-[11px] font-mono mt-1 block">ID: {deleteTarget.id}</span>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="h-9 px-4 text-xs font-semibold rounded-xl border-gray-200 hover:bg-gray-50 cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={deleting}
+                onClick={confirmDeleteProject}
+                className="h-9 px-4 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Project</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   )
 }
+

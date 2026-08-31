@@ -373,55 +373,77 @@ export function fetchProjectsSync(): ProjectRecord[] {
  */
 export async function saveProject(project: Partial<ProjectRecord> & { name: string }): Promise<ProjectRecord> {
   const existing = await fetchProjects()
+  const existingRec = project.id ? existing.find((p) => p.id === project.id) : undefined
   const now = new Date().toISOString()
-  const formattedDate = new Date().toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+  const formattedDate =
+    project.postedDate ||
+    existingRec?.postedDate ||
+    new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
 
   const targetId = project.id || `PRJ-${String(existing.length + 1).padStart(2, "0")}`
 
   const targetRecord: ProjectRecord = {
     id: targetId,
     name: project.name,
-    department: project.department || "Engineering",
-    postedBy: project.postedBy || "Recruiter",
+    department: project.department || existingRec?.department || "Engineering",
+    postedBy: project.postedBy || existingRec?.postedBy || "Recruiter",
     postedDate: formattedDate,
-    status: (project.status as "Draft" | "Published") || "Draft",
-    openPositions: Number(project.openPositions || 1),
-    candidatesCount: Number(project.candidatesCount || 0),
-    deadline: project.deadline || "",
-    coverImage: project.coverImage || "",
-    summary: project.summary || "",
-    blocks: project.blocks || [{ id: "b-1", type: "paragraph", text: "" }],
-    createdAt: now,
+    status: (project.status as "Draft" | "Published") || existingRec?.status || "Draft",
+    openPositions: Number(project.openPositions ?? existingRec?.openPositions ?? 1),
+    candidatesCount: Number(project.candidatesCount ?? existingRec?.candidatesCount ?? 0),
+    deadline: project.deadline ?? existingRec?.deadline ?? "",
+    coverImage: project.coverImage ?? existingRec?.coverImage ?? "",
+    summary: project.summary ?? existingRec?.summary ?? "",
+    blocks: project.blocks || existingRec?.blocks || [{ id: "b-1", type: "paragraph", text: "" }],
+    createdAt: existingRec?.createdAt || now,
     updatedAt: now,
+  }
+
+  // Map status to match database check constraint (Planning / In Progress / Active)
+  const dbStatus = targetRecord.status === "Draft" ? "Planning" : "In Progress"
+
+  const payload = {
+    id: targetRecord.id,
+    project_name: targetRecord.name,
+    summary: targetRecord.summary,
+    department: targetRecord.department,
+    posted_by: targetRecord.postedBy,
+    posted_date: targetRecord.postedDate,
+    status: dbStatus,
+    open_positions: targetRecord.openPositions,
+    candidates_count: targetRecord.candidatesCount,
+    deadline: targetRecord.deadline || null,
+    cover_image_url: targetRecord.coverImage,
+    blocks: targetRecord.blocks,
+    updated_at: now,
   }
 
   // Execute direct SQL upsert to Supabase
   try {
-    const { error } = await supabase.from("projects").upsert(
-      {
-        id: targetRecord.id,
-        project_name: targetRecord.name,
-        summary: targetRecord.summary,
-        department: targetRecord.department,
-        posted_by: targetRecord.postedBy,
-        posted_date: targetRecord.postedDate,
-        status: targetRecord.status,
-        open_positions: targetRecord.openPositions,
-        candidates_count: targetRecord.candidatesCount,
-        deadline: targetRecord.deadline || null,
-        cover_image_url: targetRecord.coverImage,
-        blocks: targetRecord.blocks,
-        updated_at: now,
-      },
-      { onConflict: "id" }
-    )
+    let { error } = await supabase.from("projects").upsert(payload, { onConflict: "id" })
 
     if (error) {
-      console.warn("Supabase project upsert notice:", error.message)
+      console.warn("Supabase project upsert notice (attempting fallback with targetRecord.status):", error.message)
+      // Fallback: try raw status in case check constraint was updated
+      const fallbackRes = await supabase.from("projects").upsert(
+        { ...payload, status: targetRecord.status },
+        { onConflict: "id" }
+      )
+      if (fallbackRes.error) {
+        console.error("Supabase project upsert failed completely:", fallbackRes.error.message)
+      }
+    }
+
+    // Immediately sync local cache
+    const idx = projectsCache.findIndex((p) => p.id === targetRecord.id)
+    if (idx >= 0) {
+      projectsCache[idx] = targetRecord
+    } else {
+      projectsCache.unshift(targetRecord)
     }
 
     await fetchProjects()

@@ -264,12 +264,28 @@ export async function updateApplicationStatus(
     const userEmail = extraIdentifier?.email?.trim();
     const reqId = extraIdentifier?.reqId?.trim();
 
-    // 1. Primary Attempt: update by candidate numeric ID (e.g. 908896 or 1)
-    if (numericId !== null && !isNaN(numericId)) {
+    // 0. Try RPC procedure first if created in Supabase
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc(
+        "update_candidate_application_status",
+        {
+          p_app_id: rawId,
+          p_status: newStatus,
+        }
+      );
+      if (!rpcErr && rpcData?.success) {
+        return true;
+      }
+    } catch {
+      // Ignore RPC if not created yet
+    }
+
+    // 1. Primary Attempt: update by exact candidate text ID (e.g. "APP-908896")
+    {
       const { data, error } = await supabase
         .from("candidate_applications")
         .update({ status: newStatus })
-        .eq("id", numericId)
+        .eq("id", rawId)
         .select("id");
 
       if (!error && data && data.length > 0) {
@@ -277,12 +293,12 @@ export async function updateApplicationStatus(
       }
     }
 
-    // 2. Secondary Attempt: update by exact candidate text ID (e.g. "APP-908896")
-    {
+    // 2. Secondary Attempt: update by candidate numeric ID (e.g. 908896 or 1)
+    if (numericId !== null && !isNaN(numericId)) {
       const { data, error } = await supabase
         .from("candidate_applications")
         .update({ status: newStatus })
-        .eq("id", rawId)
+        .eq("id", numericId)
         .select("id");
 
       if (!error && data && data.length > 0) {
@@ -305,7 +321,7 @@ export async function updateApplicationStatus(
       // Ignore if ref_id column does not exist
     }
 
-    // 4. Tertiary Attempt: update by candidate email + req_id (specifically targets candidate application)
+    // 4. Tertiary Attempt: update by candidate email + req_id
     if (userEmail) {
       if (reqId) {
         const { data, error } = await supabase
