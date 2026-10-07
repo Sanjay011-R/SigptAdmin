@@ -5,7 +5,6 @@ import { useAuth } from "@/hooks/use-auth"
 import { useDashboardData } from "./hooks/use-dashboard-data"
 import { WelcomeBanner } from "./components/welcome-banner"
 import { KPIMetricsGrid } from "./components/kpi-metrics-grid"
-import { HiringPipeline } from "./components/hiring-pipeline"
 import { ActiveJobsTable } from "./components/active-jobs-table"
 import { ProjectProgress } from "./components/project-progress"
 import { RecentRequests } from "./components/recent-requests"
@@ -40,15 +39,14 @@ export function DashboardPage() {
         {/* Loading Skeleton or Main Dashboard Content */}
         {loading ? (
           <div className="flex flex-col gap-6 animate-pulse">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-24 bg-gray-200/70 rounded-2xl" />
+                <div key={i} className="h-24 bg-gray-200/70 rounded-sm" />
               ))}
             </div>
-            <div className="h-48 bg-gray-200/70 rounded-2xl" />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="h-64 bg-gray-200/70 rounded-2xl" />
-              <div className="h-64 bg-gray-200/70 rounded-2xl" />
+              <div className="h-64 bg-gray-200/70 rounded-sm" />
+              <div className="h-64 bg-gray-200/70 rounded-sm" />
             </div>
           </div>
         ) : (
@@ -62,11 +60,6 @@ export function DashboardPage() {
               totalOpeningsCount={totalOpeningsCount}
               onlineUsersCount={onlineUsers.length || 1}
             />
-
-            {/* Hiring Pipeline Funnel */}
-            {permissions.canViewCandidates && (
-              <HiringPipeline candidates={candidates} />
-            )}
 
             {/* Grid Row 1: Active Jobs Table & Project Progress */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -89,3 +82,4 @@ export function DashboardPage() {
     </MainLayout>
   )
 }
+

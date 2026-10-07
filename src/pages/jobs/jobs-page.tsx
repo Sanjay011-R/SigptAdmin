@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom"
 import { MainLayout } from "@/layouts/main-layout"
 import type { JobRequirement, JobStatus } from "@/types/job-types"
 import { generateJobReqId } from "@/utils/job-req-id-generator"
-import { fetchAllJobs, saveJobRequirement, saveLocalJobs } from "@/services/job-storage-service"
+import { fetchAllJobs, saveJobRequirement, saveLocalJobs, deleteJobRequirement } from "@/services/job-storage-service"
 
 // shadcn UI Components
 import { Input } from "@/components/ui/input"
@@ -125,10 +125,10 @@ export function JobsPage() {
   const handleConfirmDelete = async () => {
     if (!deleteConfirmJob) return
     const target = deleteConfirmJob
-    const updatedList = jobs.filter((j) => j.id !== target.id)
-    setJobs(updatedList)
-    saveLocalJobs(updatedList)
     setDeleteConfirmJob(null)
+
+    const updatedList = await deleteJobRequirement(target.id, target.reqId)
+    setJobs(updatedList)
 
     await logStateMutation({
       category: "Jobs",

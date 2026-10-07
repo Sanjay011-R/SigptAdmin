@@ -6,8 +6,6 @@ export interface MetricCardProps {
   subtext?: string
   subtextType?: "positive" | "negative" | "neutral" | "info"
   icon: React.ElementType
-  iconBg: string
-  iconColor: string
   onClick?: () => void
 }
 
@@ -17,36 +15,41 @@ export function MetricCard({
   subtext,
   subtextType = "neutral",
   icon: Icon,
-  iconBg,
-  iconColor,
   onClick,
 }: MetricCardProps) {
   const subtextColorClass = {
-    positive: "text-emerald-600",
-    negative: "text-rose-600",
-    info: "text-indigo-600",
+    positive: "text-emerald-700",
+    negative: "text-rose-700",
+    info: "text-[#081B33]",
     neutral: "text-gray-500",
   }[subtextType]
 
   return (
     <div
       onClick={onClick}
-      className={`bg-white p-5 rounded-2xl border border-gray-200/80 shadow-xs flex items-center justify-between transition-all duration-200 ${
-        onClick ? "hover:shadow-md hover:border-gray-300 cursor-pointer" : ""
+      className={`bg-white p-4.5 rounded-sm border border-gray-200 flex items-center justify-between transition-all duration-150 ${
+        onClick
+          ? "hover:border-[#081B33]/40 hover:shadow-xs cursor-pointer group"
+          : ""
       }`}
     >
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-semibold text-gray-500">{label}</span>
-        <span className="text-2xl font-extrabold text-gray-900 tracking-tight">{value}</span>
+      <div className="flex flex-col gap-1 min-w-0">
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider truncate">
+          {label}
+        </span>
+        <span className="text-2xl font-bold text-[#081B33] tracking-tight">
+          {value}
+        </span>
         {subtext && (
-          <span className={`text-[11px] font-medium flex items-center gap-1 ${subtextColorClass}`}>
+          <span className={`text-[11px] font-medium truncate ${subtextColorClass}`}>
             {subtext}
           </span>
         )}
       </div>
-      <div className={`p-3 rounded-xl shrink-0 ${iconBg} ${iconColor}`}>
-        <Icon className="w-6 h-6" />
+      <div className="w-10 h-10 rounded-sm bg-gray-50 border border-gray-200/80 text-[#081B33] flex items-center justify-center shrink-0 group-hover:bg-[#081B33] group-hover:text-white transition-colors">
+        <Icon className="w-5 h-5" />
       </div>
     </div>
   )
 }
+

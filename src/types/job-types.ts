@@ -22,6 +22,7 @@ export interface JobRequirement {
   closingDate?: string    // Optional closing date
   recruiterOwner: string  // TA owner
   whyJoinSI: string[]     // Why join SI-GPT / SI-Career culture points
+  hashtags?: string       // Auto-generated social media hashtags
 }
 
 export const MOCK_JOBS: JobRequirement[] = [
