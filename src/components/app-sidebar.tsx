@@ -90,8 +90,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 src={sigptLogo}
                 alt="SI-GPT Logo"
                 className="h-8 w-auto object-contain shrink-0 rounded-md"
+                style={{
+                  filter:
+                    "brightness(1.18) saturate(1.35) drop-shadow(0 0 12px rgba(255, 122, 0, 0.9)) drop-shadow(0 0 24px rgba(255, 122, 0, 0.45)) drop-shadow(0 0 38px rgba(255, 122, 0, 0.25))",
+                  transform: "translateY(-1px)",
+                }}
               />
-              
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

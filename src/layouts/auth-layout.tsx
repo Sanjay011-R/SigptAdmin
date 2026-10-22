@@ -15,8 +15,12 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             src={sigptLogo}
             alt="SI-GPT Logo"
             className="h-8 w-auto object-contain"
+            style={{
+              filter:
+                "brightness(1.18) saturate(1.35) drop-shadow(0 0 12px rgba(255, 122, 0, 0.9)) drop-shadow(0 0 24px rgba(255, 122, 0, 0.45)) drop-shadow(0 0 38px rgba(255, 122, 0, 0.25))",
+              transform: "translateY(-1px)",
+            }}
           />
-       
         </div>
       </header>
 
