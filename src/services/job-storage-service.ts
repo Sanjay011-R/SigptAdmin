@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase"
 import { MOCK_JOBS } from "@/types/job-types"
 import type { JobRequirement } from "@/types/job-types"
+import { generateJobHashtags } from "@/utils/hashtag-generator"
 
 const STORAGE_KEY = "sigpt_job_requirements_v1"
 
@@ -62,6 +63,7 @@ export async function fetchAllJobs(): Promise<JobRequirement[]> {
       closingDate: row.closing_date || row.closingDate || "",
       recruiterOwner: row.recruiter_owner || row.recruiterOwner || "Sarah Jenkins (TA Lead)",
       whyJoinSI: row.why_join_si || row.whyJoinSI || [],
+      hashtags: row.hashtags || generateJobHashtags(row),
     }))
 
     // Save to local storage for quick offline sync
@@ -75,15 +77,18 @@ export async function fetchAllJobs(): Promise<JobRequirement[]> {
 
 /** Publish/Save job requirement to both Supabase job_requirements table and local storage */
 export async function saveJobRequirement(job: JobRequirement): Promise<JobRequirement[]> {
+  const hashtags = job.hashtags || generateJobHashtags(job)
+  const jobWithHashtags: JobRequirement = { ...job, hashtags }
+
   const currentJobs = getLocalJobs()
   const existingIdx = currentJobs.findIndex((j) => j.id === job.id || j.reqId === job.reqId)
 
   let updatedList: JobRequirement[]
   if (existingIdx >= 0) {
     updatedList = [...currentJobs]
-    updatedList[existingIdx] = { ...job }
+    updatedList[existingIdx] = { ...jobWithHashtags }
   } else {
-    updatedList = [job, ...currentJobs]
+    updatedList = [jobWithHashtags, ...currentJobs]
   }
 
   // Save to local storage
@@ -91,37 +96,72 @@ export async function saveJobRequirement(job: JobRequirement): Promise<JobRequir
 
   // Save/upsert to Supabase job_requirements table asynchronously
   try {
-    const { error } = await supabase.from("job_requirements").upsert(
-      {
-        id: job.id,
-        req_id: job.reqId,
-        job_title: job.jobTitle,
-        domain: job.domain,
-        experience_min: job.experienceMin,
-        experience_max: job.experienceMax,
-        location: job.location,
-        employment_type: job.employmentType,
-        job_summary: job.jobSummary,
-        responsibilities: job.responsibilities,
-        mandatory_skills: job.mandatorySkills,
-        preferred_skills: job.preferredSkills,
-        qualification: job.qualification,
-        openings: job.openings,
-        status: job.status,
-        posting_date: job.postingDate,
-        closing_date: job.closingDate || null,
-        recruiter_owner: job.recruiterOwner,
-        why_join_si: job.whyJoinSI,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" }
-    )
+    const payload: Record<string, any> = {
+      id: jobWithHashtags.id,
+      req_id: jobWithHashtags.reqId,
+      job_title: jobWithHashtags.jobTitle,
+      domain: jobWithHashtags.domain,
+      experience_min: jobWithHashtags.experienceMin,
+      experience_max: jobWithHashtags.experienceMax,
+      location: jobWithHashtags.location,
+      employment_type: jobWithHashtags.employmentType,
+      job_summary: jobWithHashtags.jobSummary,
+      responsibilities: jobWithHashtags.responsibilities,
+      mandatory_skills: jobWithHashtags.mandatorySkills,
+      preferred_skills: jobWithHashtags.preferredSkills,
+      qualification: jobWithHashtags.qualification,
+      openings: jobWithHashtags.openings,
+      status: jobWithHashtags.status,
+      posting_date: jobWithHashtags.postingDate,
+      closing_date: jobWithHashtags.closingDate || null,
+      recruiter_owner: jobWithHashtags.recruiterOwner,
+      why_join_si: jobWithHashtags.whyJoinSI,
+      hashtags: jobWithHashtags.hashtags,
+      updated_at: new Date().toISOString(),
+    }
+
+    let { error } = await supabase.from("job_requirements").upsert(payload, { onConflict: "id" })
+
+    // If hashtags column not added to DB yet, retry without hashtags column
+    if (error && error.message && error.message.toLowerCase().includes("hashtags")) {
+      console.warn("[Jobs] 'hashtags' column missing in Supabase, retrying without it:", error.message)
+      delete payload.hashtags
+      const retry = await supabase.from("job_requirements").upsert(payload, { onConflict: "id" })
+      error = retry.error
+    }
 
     if (error) {
-      console.warn("Supabase table store notification:", error.message)
+      console.error("[Jobs] Supabase upsert error:", error.message, error.details || "")
+    } else {
+      console.log("[Jobs] Successfully upserted job to Supabase:", jobWithHashtags.reqId)
     }
   } catch (err) {
     console.warn("Could not upsert to Supabase job_requirements table:", err)
+  }
+
+  return updatedList
+}
+
+/** Delete job requirement from both Supabase and localStorage */
+export async function deleteJobRequirement(id: string, reqId?: string): Promise<JobRequirement[]> {
+  const currentJobs = getLocalJobs()
+  const updatedList = currentJobs.filter((j) => j.id !== id && (!reqId || j.reqId !== reqId))
+  saveLocalJobs(updatedList)
+
+  try {
+    const filter = reqId ? `id.eq.${id},req_id.eq.${reqId}` : `id.eq.${id}`
+    const { error } = await supabase
+      .from("job_requirements")
+      .delete()
+      .or(filter)
+
+    if (error) {
+      console.warn("[Jobs] Supabase delete warning:", error.message)
+    } else {
+      console.log("[Jobs] Successfully deleted job from Supabase:", id, reqId)
+    }
+  } catch (err) {
+    console.warn("Could not delete from Supabase job_requirements table:", err)
   }
 
   return updatedList

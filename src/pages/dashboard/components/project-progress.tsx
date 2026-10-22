@@ -11,27 +11,27 @@ export function ProjectProgress({ projects }: ProjectProgressProps) {
   const activeProjects = projects.filter((p) => p.status === "Published").slice(0, 4)
 
   const statusColors: Record<string, string> = {
-    Published: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    Draft: "bg-amber-50 text-amber-700 border-amber-200",
+    Published: "bg-emerald-100 text-emerald-800",
+    Draft: "bg-amber-100 text-amber-800",
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-6 flex flex-col gap-4">
+    <div className="bg-white rounded-sm border border-gray-200 p-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-900">Project Drives Progress</h2>
+          <h2 className="text-base font-bold text-[#081B33]">Project Drives Progress</h2>
           <p className="text-xs text-gray-500">Recruitment campaigns and hiring initiatives</p>
         </div>
         <button
           onClick={() => navigate("/projects")}
-          className="text-xs font-semibold text-[#0B192C] hover:underline cursor-pointer flex items-center gap-1"
+          className="text-xs font-semibold text-[#081B33] hover:text-[#FF7A00] cursor-pointer flex items-center gap-1 transition-colors"
         >
           View All ({projects.length}) <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {activeProjects.length === 0 ? (
-        <div className="py-8 text-center text-xs text-gray-500 flex flex-col items-center gap-2">
+        <div className="py-12 text-center text-xs text-gray-500 flex flex-col items-center gap-2">
           <FolderKanban className="w-8 h-8 text-gray-300" />
           <span>No active projects at this time.</span>
         </div>
@@ -47,20 +47,20 @@ export function ProjectProgress({ projects }: ProjectProgressProps) {
               <div
                 key={project.id}
                 onClick={() => navigate("/projects")}
-                className="p-4 rounded-xl border border-gray-200/80 hover:border-gray-300 bg-white hover:bg-gray-50/50 transition-all cursor-pointer flex flex-col gap-3"
+                className="p-4 rounded-sm border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50/50 transition-all cursor-pointer flex flex-col gap-3 group"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                       {project.department}
                     </span>
-                    <h3 className="text-sm font-bold text-gray-900 line-clamp-1">
+                    <h3 className="text-sm font-bold text-[#081B33] group-hover:text-[#FF7A00] transition-colors line-clamp-1">
                       {project.name}
                     </h3>
                   </div>
                   <span
-                    className={`px-2 py-0.5 border rounded-full text-[10px] font-bold shrink-0 ${
-                      statusColors[project.status] || statusColors.Planning
+                    className={`px-2 py-0.5 rounded-sm text-[10px] font-bold shrink-0 ${
+                      statusColors[project.status] || "bg-gray-100 text-gray-700"
                     }`}
                   >
                     {project.status}
@@ -81,9 +81,9 @@ export function ProjectProgress({ projects }: ProjectProgressProps) {
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-gray-100 rounded-xs overflow-hidden">
                   <div
-                    className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                    className="h-full bg-[#081B33] transition-all duration-300"
                     style={{ width: `${fillRatio}%` }}
                   />
                 </div>
@@ -95,3 +95,4 @@ export function ProjectProgress({ projects }: ProjectProgressProps) {
     </div>
   )
 }
+

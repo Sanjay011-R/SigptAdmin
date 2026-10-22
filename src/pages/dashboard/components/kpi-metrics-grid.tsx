@@ -29,15 +29,13 @@ export function KPIMetricsGrid({
   const navigate = useNavigate()
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
       <MetricCard
         label="Open Jobs"
         value={openJobsCount}
         subtext="Active Requisitions"
-        subtextType="positive"
+        subtextType="neutral"
         icon={Briefcase}
-        iconBg="bg-indigo-50"
-        iconColor="text-indigo-600"
         onClick={() => navigate("/jobs")}
       />
 
@@ -45,10 +43,8 @@ export function KPIMetricsGrid({
         label="Total Candidates"
         value={totalCandidatesCount}
         subtext="Applications Received"
-        subtextType="info"
+        subtextType="neutral"
         icon={Users}
-        iconBg="bg-blue-50"
-        iconColor="text-blue-600"
         onClick={() => navigate("/applications")}
       />
 
@@ -58,8 +54,6 @@ export function KPIMetricsGrid({
         subtext="Hiring Drives"
         subtextType="neutral"
         icon={FolderKanban}
-        iconBg="bg-purple-50"
-        iconColor="text-purple-600"
         onClick={() => navigate("/projects")}
       />
 
@@ -69,8 +63,6 @@ export function KPIMetricsGrid({
         subtext={newRequestsCount > 0 ? "Requires action" : "All clear"}
         subtextType={newRequestsCount > 0 ? "negative" : "positive"}
         icon={MessageSquare}
-        iconBg="bg-rose-50"
-        iconColor="text-rose-600"
         onClick={() => navigate("/requests")}
       />
 
@@ -78,10 +70,8 @@ export function KPIMetricsGrid({
         label="Total Openings"
         value={totalOpeningsCount}
         subtext="Target Positions"
-        subtextType="positive"
+        subtextType="neutral"
         icon={UserCheck}
-        iconBg="bg-emerald-50"
-        iconColor="text-emerald-600"
         onClick={() => navigate("/jobs")}
       />
 
@@ -91,9 +81,8 @@ export function KPIMetricsGrid({
         subtext="Active Now"
         subtextType="positive"
         icon={Radio}
-        iconBg="bg-amber-50"
-        iconColor="text-amber-600"
       />
     </div>
   )
 }
+

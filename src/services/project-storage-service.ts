@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase"
+import { generateProjectHashtags } from "@/utils/hashtag-generator"
 
 export type BlockType =
   | "paragraph"
@@ -158,6 +159,7 @@ export interface ProjectRecord {
   deadline?: string
   coverImage?: string
   summary?: string
+  hashtags?: string
   blocks: ContentBlock[]
   createdAt: string
   updatedAt: string
@@ -322,6 +324,7 @@ function mapRowToProject(row: any): ProjectRecord {
     deadline: row.deadline || "",
     coverImage: row.cover_image_url || row.coverImage || "",
     summary: row.summary || "",
+    hashtags: row.hashtags || generateProjectHashtags({ name: row.project_name || row.name, department: row.department, summary: row.summary }),
     blocks: Array.isArray(row.blocks) ? row.blocks : typeof row.blocks === "string" ? JSON.parse(row.blocks) : [],
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
@@ -398,6 +401,7 @@ export async function saveProject(project: Partial<ProjectRecord> & { name: stri
     deadline: project.deadline ?? existingRec?.deadline ?? "",
     coverImage: project.coverImage ?? existingRec?.coverImage ?? "",
     summary: project.summary ?? existingRec?.summary ?? "",
+    hashtags: project.hashtags || generateProjectHashtags({ name: project.name, department: project.department, summary: project.summary }),
     blocks: project.blocks || existingRec?.blocks || [{ id: "b-1", type: "paragraph", text: "" }],
     createdAt: existingRec?.createdAt || now,
     updatedAt: now,
@@ -410,6 +414,7 @@ export async function saveProject(project: Partial<ProjectRecord> & { name: stri
     id: targetRecord.id,
     project_name: targetRecord.name,
     summary: targetRecord.summary,
+    hashtags: targetRecord.hashtags,
     department: targetRecord.department,
     posted_by: targetRecord.postedBy,
     posted_date: targetRecord.postedDate,
