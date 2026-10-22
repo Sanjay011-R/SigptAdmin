@@ -10,3 +10,14 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Module-level capture for recovery event before React components mount
+if (typeof window !== "undefined" && window.sessionStorage) {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      sessionStorage.setItem("pw_recovery", "1")
+    } else if (event === "SIGNED_OUT") {
+      sessionStorage.removeItem("pw_recovery")
+    }
+  })
+}

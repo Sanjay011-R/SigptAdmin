@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Outlet } from "react-router-dom"
 import { useAuth, type UserPermissions } from "@/hooks/use-auth"
 import { LoginPage } from "@/pages/auth/login-page"
+import { ResetPasswordPage } from "@/pages/auth/reset-password-page"
 import { DashboardPage } from "@/pages/dashboard/dashboard-page"
 import { UserManagementPage } from "@/pages/users/user-management-page"
 import { CreateUserPage } from "@/pages/users/create-user-page"
@@ -79,6 +80,9 @@ export function AppRoutes() {
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>
+
+      {/* Password Recovery Route (Standalone to prevent auto-redirect to dashboard) */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected routes for authenticated users */}
       <Route element={<ProtectedRoute />}>

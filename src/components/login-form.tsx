@@ -1,14 +1,17 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { cn } from "@/lib/utils"
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { ForgotPasswordForm } from "@/components/forgot-password-form"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [view, setView] = useState<"login" | "forgot-password">("login")
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [email, setEmail] = useState("")
@@ -16,6 +19,29 @@ export function LoginForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+
+  // Surface password reset success banner from URL parameter
+  useEffect(() => {
+    if (searchParams.get("reset") === "success") {
+      setMessage("Password reset successfully! Please sign in with your new password.")
+      // Strip query parameter to keep URL clean
+      navigate("/login", { replace: true })
+    }
+  }, [searchParams, navigate])
+
+  if (view === "forgot-password") {
+    return (
+      <ForgotPasswordForm
+        className={className}
+        onBackToLogin={() => {
+          setError(null)
+          setMessage(null)
+          setView("login")
+        }}
+        {...props}
+      />
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,8 +110,13 @@ export function LoginForm({
       )}
 
       {message && (
-        <div className="p-3.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl font-medium">
-          {message}
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2.5 p-3.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl font-medium"
+        >
+          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-green-600" />
+          <span>{message}</span>
         </div>
       )}
 
@@ -147,12 +178,17 @@ export function LoginForm({
             />
             <span>Remember Me</span>
           </label>
-          <a
-            href="#"
-            className="text-[#0B192C] font-semibold hover:underline transition-colors"
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setMessage(null)
+              setView("forgot-password")
+            }}
+            className="text-[#0B192C] font-semibold hover:underline transition-colors cursor-pointer bg-transparent border-none p-0 text-xs"
           >
             Forgot Password?
-          </a>
+          </button>
         </div>
 
         {/* Submit Button */}
