@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { LinkedInStatusBadge } from "./linkedin-status-badge"
 
 interface JobsTableProps {
   jobs: JobRequirement[]
@@ -49,6 +50,7 @@ export function JobsTable({
               <th className="py-3.5 px-4">Location</th>
               <th className="py-3.5 px-4">TA Owner</th>
               <th className="py-3.5 px-4">Status</th>
+              <th className="py-3.5 px-4">LinkedIn</th>
               <th className="py-3.5 px-5 text-right">Actions</th>
             </tr>
           </thead>
@@ -98,8 +100,8 @@ export function JobsTable({
                 </td>
 
                 {/* TA Owner */}
-                <td className="py-4 px-4 text-gray-600">
-                  {job.recruiterOwner}
+                <td className="py-4 px-4 text-gray-600 font-medium">
+                  {job.recruiterOwner || "sigptit (Super Admin)"}
                 </td>
 
                 {/* Status */}
@@ -117,6 +119,16 @@ export function JobsTable({
                   >
                     {job.status}
                   </span>
+                </td>
+
+                {/* LinkedIn */}
+                <td className="py-4 px-4">
+                  <LinkedInStatusBadge
+                    status={job.linkedinPostStatus}
+                    errorMessage={job.linkedinErrorMessage}
+                    postedAt={job.linkedinPostedAt}
+                    updatedAt={job.linkedinUpdatedAt}
+                  />
                 </td>
 
                 {/* Actions */}

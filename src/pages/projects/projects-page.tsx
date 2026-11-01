@@ -124,17 +124,15 @@ export function ProjectsPage() {
   }
 
   return (
-    <MainLayout pageTitle="Recruitment Projects">
+    <MainLayout pageTitle="Projects">
       <div className="flex flex-col gap-6 font-sans">
         {/* Top Header & Action Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-              Recruitment Projects
+              Projects
             </h1>
-            <p className="text-xs text-gray-500 font-medium mt-0.5">
-              Organize, track, and publish active hiring drives and department projects.
-            </p>
+           
           </div>
 
           <div className="flex items-center gap-3">
@@ -213,7 +211,7 @@ export function ProjectsPage() {
         {filteredProjects.length === 0 ? (
           <div className="text-center py-16 px-4 min-h-[420px] bg-white rounded-sm border border-gray-200">
             <p className="font-inter text-sm text-gray-600 font-medium">
-              No recruitment projects found matching search criteria.
+              No projects found matching search criteria.
             </p>
           </div>
         ) : (
@@ -279,12 +277,7 @@ export function ProjectsPage() {
 
                       {/* Project Lead */}
                       <td className="py-4 px-4 font-semibold text-gray-900 whitespace-nowrap">
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="truncate">{project.postedBy || "Recruiter"}</span>
-                          <span className="text-[11px] text-gray-400 truncate">
-                            {project.openPositions} Open Position{project.openPositions > 1 ? "s" : ""}
-                          </span>
-                        </div>
+                        <span className="truncate">{project.postedBy || "sigptit (Super Admin)"}</span>
                       </td>
 
                       {/* Posted Date */}
@@ -366,8 +359,8 @@ export function ProjectsPage() {
                   </div>
 
                   <div className="text-[11px] text-gray-600 font-medium flex flex-col gap-0.5">
-                    <span>Posted by: <strong>{project.postedBy}</strong></span>
-                    <span>{project.candidatesCount || 0} Candidates • {project.openPositions} Openings</span>
+                    <span>Posted by: <strong>{project.postedBy || "sigptit (Super Admin)"}</strong></span>
+                    <span>{project.candidatesCount || 0} Candidates</span>
                   </div>
 
                   <div

@@ -2,6 +2,8 @@ export type JobStatus = "Draft" | "Open" | "On Hold" | "Closed"
 export type EmploymentType = "Full-time" | "Contract" | "Internship" | "Part-time"
 export type JobDomain = "Physical Design (PD)" | "Static Timing Analysis (STA)" | "Design Verification (DV)" | "Embedded Systems" | "Analog & Mixed-Signal (AMS)"
 
+export type LinkedInPostStatus = "Pending" | "Posted" | "Failed" | "Skipped"
+
 export interface JobRequirement {
   id: string              // Internal ID (e.g., '1')
   reqId: string           // Unique Req ID (e.g., 'REQ-PD-2026-001')
@@ -23,6 +25,10 @@ export interface JobRequirement {
   recruiterOwner: string  // TA owner
   whyJoinSI: string[]     // Why join SI-GPT / SI-Career culture points
   hashtags?: string       // Auto-generated social media hashtags
+  linkedinPostStatus?: LinkedInPostStatus
+  linkedinErrorMessage?: string | null
+  linkedinPostedAt?: string | null
+  linkedinUpdatedAt?: string | null
 }
 
 export const MOCK_JOBS: JobRequirement[] = [
@@ -57,7 +63,7 @@ export const MOCK_JOBS: JobRequirement[] = [
     status: "Open",
     postingDate: "2026-08-20",
     closingDate: "2026-09-30",
-    recruiterOwner: "Sarah Jenkins (TA Specialist)",
+    recruiterOwner: "Admin (Super Admin)",
     whyJoinSI: [
       "Work on cutting-edge sub-3nm semiconductor and AI accelerator architectures.",
       "Flexible hybrid working culture with competitive ESOP package.",
@@ -93,7 +99,7 @@ export const MOCK_JOBS: JobRequirement[] = [
     openings: 3,
     status: "Open",
     postingDate: "2026-08-22",
-    recruiterOwner: "David Miller (TA Manager)",
+    recruiterOwner: "Admin (Super Admin)",
     whyJoinSI: [
       "Direct exposure to world-class silicon engineering projects.",
       "Comprehensive health coverage and annual performance bonuses."
@@ -128,7 +134,7 @@ export const MOCK_JOBS: JobRequirement[] = [
     openings: 5,
     status: "Draft",
     postingDate: "2026-08-25",
-    recruiterOwner: "Sarah Jenkins (TA Specialist)",
+    recruiterOwner: "Admin (Super Admin)",
     whyJoinSI: [
       "Industry-leading learning ecosystem and technical certification support."
     ]

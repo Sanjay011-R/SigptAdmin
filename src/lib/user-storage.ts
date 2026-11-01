@@ -76,7 +76,17 @@ export function getDynamicRecruiterOptions(currentUser?: any): { value: string; 
 export async function fetchDynamicRecruiterOptions(currentUser?: any): Promise<{ value: string; label: string }[]> {
   const optionsMap = new Map<string, string>()
 
-  // 1. Fetch live user profiles from Supabase DB
+  // 1. Add current logged-in user FIRST so creator/editor is default option
+  if (currentUser) {
+    const name = currentUser.user_metadata?.full_name || currentUser.email?.split("@")[0] || "Admin"
+    const role = currentUser.user_metadata?.role || "Super Admin"
+    const formatted = `${name} (${role})`
+    optionsMap.set(formatted.toLowerCase(), formatted)
+  } else {
+    optionsMap.set("admin (super admin)", "Admin (Super Admin)")
+  }
+
+  // 2. Fetch live user profiles from Supabase DB
   try {
     const { data, error } = await supabase
       .from("profiles")
@@ -87,21 +97,13 @@ export async function fetchDynamicRecruiterOptions(currentUser?: any): Promise<{
         const name = p.full_name || p.email?.split("@")[0] || "User"
         const role = p.role || "Recruiter"
         const formatted = `${name} (${role})`
-        optionsMap.set(formatted.toLowerCase(), formatted)
+        if (!optionsMap.has(formatted.toLowerCase())) {
+          optionsMap.set(formatted.toLowerCase(), formatted)
+        }
       })
     }
   } catch (err) {
     console.warn("Supabase profiles query error:", err)
-  }
-
-  // 2. Add current logged-in user if not present
-  if (currentUser) {
-    const name = currentUser.user_metadata?.full_name || currentUser.email?.split("@")[0] || "Admin"
-    const role = currentUser.user_metadata?.role || "Super Admin"
-    const formatted = `${name} (${role})`
-    if (!optionsMap.has(formatted.toLowerCase())) {
-      optionsMap.set(formatted.toLowerCase(), formatted)
-    }
   }
 
   // 3. Add all local stored users

@@ -80,10 +80,12 @@ const DEFAULT_LOCATIONS = ["Bengaluru", "Hyderabad", "Noida", "Pune", "Chennai",
 export function CreateJobPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user: authUser } = useAuth()
+  const { user: authUser, role: authRole, displayName } = useAuth()
   const { logPageView, logStateMutation } = useAuditLogger()
   const isEditing = Boolean(id)
   const [activeTab, setActiveTab] = useState<"form" | "preview">("form")
+
+  const currentUserDisplayName = displayName || `${authUser?.user_metadata?.full_name || authUser?.email?.split("@")[0] || "User"} (${authRole || "Super Admin"})`
 
   useEffect(() => {
     logPageView(isEditing ? "Edit Job Requirement" : "Create Job Requirement")
@@ -97,10 +99,10 @@ export function CreateJobPage() {
       const options = await fetchDynamicRecruiterOptions(authUser)
       if (isMounted) {
         setRecruiterOptions(options)
-        if (!isEditing && options.length > 0) {
+        if (!isEditing) {
           setFormData((prev) => ({
             ...prev,
-            recruiterOwner: prev.recruiterOwner || options[0].value,
+            recruiterOwner: prev.recruiterOwner || currentUserDisplayName || (options.length > 0 ? options[0].value : ""),
           }))
         }
       }
@@ -114,7 +116,7 @@ export function CreateJobPage() {
       window.removeEventListener("sigpt_users_updated", updateOptions)
       window.removeEventListener("storage", updateOptions)
     }
-  }, [authUser, isEditing])
+  }, [authUser, currentUserDisplayName, isEditing])
 
   const [formData, setFormData] = useState<Partial<JobRequirement>>({
     reqId: generateJobReqId("Physical Design (PD)", 41),
@@ -133,7 +135,7 @@ export function CreateJobPage() {
     status: "Open",
     postingDate: new Date().toISOString().split("T")[0],
     closingDate: "",
-    recruiterOwner: "",
+    recruiterOwner: currentUserDisplayName,
     whyJoinSI: [],
   })
 
@@ -146,17 +148,21 @@ export function CreateJobPage() {
     if (id) {
       fetchAllJobs().then((jobs) => {
         const existing = jobs.find((j) => j.id === id || j.reqId === id)
-        if (existing) setFormData({ ...existing })
+        if (existing) {
+          setFormData({
+            ...existing,
+            // When editing, TA Owner automatically updates to person editing the post
+            recruiterOwner: currentUserDisplayName || existing.recruiterOwner,
+          })
+        }
       })
     } else {
-      if (recruiterOptions.length > 0 && !formData.recruiterOwner) {
-        setFormData((prev) => ({
-          ...prev,
-          recruiterOwner: prev.recruiterOwner || recruiterOptions[0].value,
-        }))
-      }
+      setFormData((prev) => ({
+        ...prev,
+        recruiterOwner: prev.recruiterOwner || currentUserDisplayName,
+      }))
     }
-  }, [id, recruiterOptions])
+  }, [id, currentUserDisplayName])
 
   const handleAddResponsibility = () => {
     if (!newRespItem.trim()) return
@@ -277,7 +283,7 @@ export function CreateJobPage() {
       status: (formData.status || "Open") as JobStatus,
       postingDate: formData.postingDate || new Date().toISOString().split("T")[0],
       closingDate: formData.closingDate || "",
-      recruiterOwner: formData.recruiterOwner || "",
+      recruiterOwner: formData.recruiterOwner || currentUserDisplayName,
       whyJoinSI: formData.whyJoinSI || [],
     }
 
@@ -858,13 +864,18 @@ export function CreateJobPage() {
                   </div>
 
                   <div className="flex flex-col gap-1.5 pt-1">
-                    <Label className="text-xs font-bold text-gray-800">Recruiter Owner</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-gray-800">TA Owner</Label>
+                      <span className="text-[10px] text-gray-400 font-medium">
+                        {isEditing ? "Updated to editor" : "Auto-set to creator"}
+                      </span>
+                    </div>
                     <Combobox
                       options={recruiterOptions}
-                      value={formData.recruiterOwner || ""}
+                      value={formData.recruiterOwner || currentUserDisplayName}
                       onValueChange={(val) => setFormData({ ...formData, recruiterOwner: val })}
-                      placeholder="Select or enter recruiter..."
-                      searchPlaceholder="Search or enter recruiter..."
+                      placeholder="Select or enter TA Owner..."
+                      searchPlaceholder="Search or enter TA Owner..."
                       className="h-9 text-xs font-semibold bg-gray-50 border-gray-200 rounded-sm"
                       allowCustom={true}
                     />

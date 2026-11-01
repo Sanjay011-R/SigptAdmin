@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
 import { MainLayout } from "@/layouts/main-layout"
-import { useAuditLogger } from "@/hooks/use-audit-logger"
 import {
   fetchAuditLogsFromDb,
   fetchAuditLogsPage,
@@ -19,7 +18,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox"
 import { PaginationBar } from "@/components/ui/pagination"
+
+const categoryOptions: ComboboxOption[] = [
+  { value: "All", label: "All Categories" },
+  { value: "Jobs", label: "Jobs Management" },
+  { value: "Candidates", label: "Candidates & Applications" },
+  { value: "Users", label: "User & Access Rights" },
+  { value: "Security", label: "Security & Verification" },
+]
 import {
   Search,
   ShieldCheck,
@@ -112,7 +120,6 @@ function CopyIconButton({
 }
 
 export function ActivityLogPage() {
-  const { logPageView } = useAuditLogger()
   const [logs, setLogs] = useState<AuditLogRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -135,10 +142,6 @@ export function ActivityLogPage() {
 
   const [selectedLog, setSelectedLog] = useState<AuditLogRecord | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-
-  useEffect(() => {
-    logPageView("Audit Log Console")
-  }, [logPageView])
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -328,39 +331,39 @@ export function ActivityLogPage() {
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-gray-400 font-medium">Category:</span>
-              <select
+              <Combobox
+                options={categoryOptions}
                 value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value)
+                onValueChange={(val) => {
+                  setSelectedCategory(val)
                   setPage(1)
                 }}
-                className="h-9 px-3 text-xs font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-sm outline-none cursor-pointer"
-              >
-                <option value="All">All Categories</option>
-                <option value="Jobs">Jobs Management</option>
-                <option value="Candidates">Candidates & Applications</option>
-                <option value="Users">User & Access Rights</option>
-                <option value="Security">Security & Verification</option>
-              </select>
+                allowCustom={false}
+                placeholder="All Categories"
+                searchPlaceholder="Search category..."
+                className="h-9 min-w-[160px] text-xs font-semibold rounded-lg bg-gray-50 border-gray-200"
+                popoverClassName="min-w-[200px]"
+              />
             </div>
 
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-gray-400 font-medium">User:</span>
-              <select
+              <Combobox
+                options={[
+                  { value: "All", label: "All Team Members" },
+                  ...actorOptions.map((actor) => ({ value: actor, label: actor })),
+                ]}
                 value={selectedActor}
-                onChange={(e) => {
-                  setSelectedActor(e.target.value)
+                onValueChange={(val) => {
+                  setSelectedActor(val)
                   setPage(1)
                 }}
-                className="h-9 px-3 text-xs font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-sm outline-none cursor-pointer"
-              >
-                <option value="All">All Team Members</option>
-                {actorOptions.map((actor) => (
-                  <option key={actor} value={actor}>
-                    {actor}
-                  </option>
-                ))}
-              </select>
+                allowCustom={false}
+                placeholder="All Team Members"
+                searchPlaceholder="Search user..."
+                className="h-9 min-w-[160px] text-xs font-semibold rounded-lg bg-gray-50 border-gray-200"
+                popoverClassName="min-w-[200px]"
+              />
             </div>
 
             <span className="text-xs text-gray-400 font-medium">

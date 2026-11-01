@@ -72,7 +72,18 @@ export function ForgotPasswordForm({
       }
 
       // 2. Account exists (or check inconclusive), dispatch password reset recovery email
-      const appUrl = import.meta.env.VITE_APP_URL || window.location.origin
+      const isLocalhost =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+
+      const configuredUrl = (import.meta.env.VITE_APP_URL || "").trim().replace(/^[\\/]+/, "")
+      const productionUrl = configuredUrl.startsWith("http")
+        ? configuredUrl
+        : configuredUrl
+        ? `https://${configuredUrl}`
+        : window.location.origin
+
+      const appUrl = isLocalhost ? window.location.origin : productionUrl
       const redirectTo = `${appUrl}/reset-password`
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(

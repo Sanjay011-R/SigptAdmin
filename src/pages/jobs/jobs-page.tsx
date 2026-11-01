@@ -4,6 +4,7 @@ import { MainLayout } from "@/layouts/main-layout"
 import type { JobRequirement, JobStatus } from "@/types/job-types"
 import { generateJobReqId } from "@/utils/job-req-id-generator"
 import { fetchAllJobs, saveJobRequirement, saveLocalJobs, deleteJobRequirement } from "@/services/job-storage-service"
+import { supabase } from "@/lib/supabase"
 
 // shadcn UI Components
 import { Input } from "@/components/ui/input"
@@ -27,6 +28,7 @@ const STATUS_OPTIONS: ComboboxOption[] = [
   { value: "Closed", label: "Closed" },
 ]
 
+import { useAuth } from "@/hooks/use-auth"
 import { useAuditLogger } from "@/hooks/use-audit-logger"
 
 import { 
@@ -39,6 +41,7 @@ import {
 
 export function JobsPage() {
   const navigate = useNavigate()
+  const { user: authUser, role: authRole, displayName } = useAuth()
   const { logPageView, logStateMutation } = useAuditLogger()
   const [jobs, setJobs] = useState<JobRequirement[]>([])
   const [search, setSearch] = useState("")
@@ -47,9 +50,27 @@ export function JobsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [deleteConfirmJob, setDeleteConfirmJob] = useState<JobRequirement | null>(null)
 
+  const currentUserDisplayName = displayName || `${authUser?.user_metadata?.full_name || authUser?.email?.split("@")[0] || "User"} (${authRole || "Super Admin"})`
+
   useEffect(() => {
     logPageView("Job Postings")
     fetchAllJobs().then((list) => setJobs(list))
+
+    // Realtime subscription for Make.com / Supabase status updates
+    const channel = supabase
+      .channel("job_requirements_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "job_requirements" },
+        () => {
+          fetchAllJobs().then((list) => setJobs(list))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [logPageView])
 
   // Filter Jobs
@@ -81,7 +102,8 @@ export function JobsPage() {
       reqId: newReqId,
       jobTitle: `${job.jobTitle} (Copy)`,
       status: "Draft",
-      postingDate: new Date().toISOString().split("T")[0]
+      postingDate: new Date().toISOString().split("T")[0],
+      recruiterOwner: currentUserDisplayName,
     }
     const updated = await saveJobRequirement(newJob)
     setJobs(updated)
@@ -92,14 +114,18 @@ export function JobsPage() {
       action: "Job Requirement Duplicated",
       type: "create",
       targetEntity: `Job ${newReqId}`,
-      details: `Duplicated job '${job.jobTitle}' into new draft '${newJob.jobTitle}' (${newReqId}).`,
+      details: `Duplicated job '${job.jobTitle}' into new draft '${newJob.jobTitle}' (${newReqId}) by ${currentUserDisplayName}.`,
     })
   }
 
   const handleStatusChange = async (jobId: string, newStatus: JobStatus) => {
     const target = jobs.find((j) => j.id === jobId)
     if (!target) return
-    const updatedJob = { ...target, status: newStatus }
+    const updatedJob: JobRequirement = {
+      ...target,
+      status: newStatus,
+      recruiterOwner: currentUserDisplayName,
+    }
     const updatedList = await saveJobRequirement(updatedJob)
     setJobs(updatedList)
     setActiveMenuId(null)
@@ -109,7 +135,7 @@ export function JobsPage() {
       action: "Job Status Updated",
       type: "update",
       targetEntity: `Job ${target.reqId}`,
-      details: `Updated status for '${target.jobTitle}' from ${target.status} to ${newStatus}.`,
+      details: `Updated status for '${target.jobTitle}' from ${target.status} to ${newStatus} by ${currentUserDisplayName}.`,
       changes: [{ field: "status", from: target.status, to: newStatus }],
     })
   }

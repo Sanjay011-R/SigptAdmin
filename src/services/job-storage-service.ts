@@ -61,9 +61,13 @@ export async function fetchAllJobs(): Promise<JobRequirement[]> {
       status: row.status || "Open",
       postingDate: row.posting_date || row.postingDate || new Date().toISOString().split("T")[0],
       closingDate: row.closing_date || row.closingDate || "",
-      recruiterOwner: row.recruiter_owner || row.recruiterOwner || "Sarah Jenkins (TA Lead)",
+      recruiterOwner: row.recruiter_owner || row.recruiterOwner || "sigptit (Super Admin)",
       whyJoinSI: row.why_join_si || row.whyJoinSI || [],
       hashtags: row.hashtags || generateJobHashtags(row),
+      linkedinPostStatus: row.linkedin_post_status || "Pending",
+      linkedinErrorMessage: row.linkedin_error_message || null,
+      linkedinPostedAt: row.linkedin_posted_at || null,
+      linkedinUpdatedAt: row.linkedin_updated_at || null,
     }))
 
     // Save to local storage for quick offline sync
@@ -120,12 +124,36 @@ export async function saveJobRequirement(job: JobRequirement): Promise<JobRequir
       updated_at: new Date().toISOString(),
     }
 
+    if (jobWithHashtags.linkedinPostStatus) {
+      payload.linkedin_post_status = jobWithHashtags.linkedinPostStatus
+    }
+    if (jobWithHashtags.linkedinErrorMessage !== undefined) {
+      payload.linkedin_error_message = jobWithHashtags.linkedinErrorMessage
+    }
+    if (jobWithHashtags.linkedinPostedAt !== undefined) {
+      payload.linkedin_posted_at = jobWithHashtags.linkedinPostedAt
+    }
+    if (jobWithHashtags.linkedinUpdatedAt !== undefined) {
+      payload.linkedin_updated_at = jobWithHashtags.linkedinUpdatedAt
+    }
+
     let { error } = await supabase.from("job_requirements").upsert(payload, { onConflict: "id" })
 
     // If hashtags column not added to DB yet, retry without hashtags column
     if (error && error.message && error.message.toLowerCase().includes("hashtags")) {
       console.warn("[Jobs] 'hashtags' column missing in Supabase, retrying without it:", error.message)
       delete payload.hashtags
+      const retry = await supabase.from("job_requirements").upsert(payload, { onConflict: "id" })
+      error = retry.error
+    }
+
+    // If linkedin columns not added to DB yet, retry without linkedin columns
+    if (error && error.message && error.message.toLowerCase().includes("linkedin")) {
+      console.warn("[Jobs] 'linkedin' columns missing in Supabase, retrying without them:", error.message)
+      delete payload.linkedin_post_status
+      delete payload.linkedin_error_message
+      delete payload.linkedin_posted_at
+      delete payload.linkedin_updated_at
       const retry = await supabase.from("job_requirements").upsert(payload, { onConflict: "id" })
       error = retry.error
     }

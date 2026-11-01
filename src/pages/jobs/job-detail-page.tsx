@@ -11,26 +11,19 @@ import {
 } from "@/services/application-storage-service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { supabase } from "@/lib/supabase"
+import { LinkedInStatusBadge } from "@/components/jobs/linkedin-status-badge"
 import {
   ArrowLeft,
   CheckCircle2,
   Copy,
   Check,
-  Share2,
   Edit2,
   ExternalLink,
   MapPin,
   Clock,
   UserCheck,
   Calendar,
-  Sparkles,
   Users,
   FileText,
   Search,
@@ -41,63 +34,8 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  AlertTriangle,
 } from "lucide-react"
-
-function generateLinkedInPostContent(job: JobRequirement): string {
-  const currentUrl = window.location.href
-  const domainTag = job.domain.replace(/[^a-zA-Z0-9]/g, "")
-  const roleTag = job.jobTitle.replace(/[^a-zA-Z0-9]/g, "")
-
-  const responsibilitiesText =
-    job.responsibilities && job.responsibilities.length > 0
-      ? job.responsibilities.slice(0, 3).map((r) => `  • ${r}`).join("\n")
-      : "  • Drive top-level engineering deliverables & technical signoff"
-
-  const skillsText =
-    job.mandatorySkills && job.mandatorySkills.length > 0
-      ? job.mandatorySkills.slice(0, 3).map((s) => `  ✓ ${s}`).join("\n")
-      : "  ✓ Strong domain expertise & technical leadership"
-
-  const whyJoinText =
-    job.whyJoinSI && job.whyJoinSI.length > 0
-      ? job.whyJoinSI.slice(0, 2).map((w) => `  ✨ ${w}`).join("\n")
-      : "  ✨ Cutting-edge technology projects & competitive growth ecosystem"
-
-  return `🚀 WE ARE HIRING: ${job.jobTitle.toUpperCase()} 🚀
-
-Are you passionate about driving next-generation engineering excellence? We are expanding our high-impact team at SI-Career and looking for top-tier talent to join us!
-
-📋 KEY POSITION DETAILS:
-• Role: ${job.jobTitle}
-• Requisition ID: ${job.reqId}
-• Technical Domain: ${job.domain}
-• Experience Required: ${job.experienceMin} – ${job.experienceMax} Years
-• Location: ${job.location.join(", ")}
-• Employment Type: ${job.employmentType}
-• Open Positions: ${job.openings}
-• Educational Qualification: ${job.qualification || "B.Tech / M.Tech in ECE / CS / EE"}
-
-📝 ROLE OVERVIEW:
-${job.jobSummary}
-
-🎯 KEY RESPONSIBILITIES:
-${responsibilitiesText}
-
-⚡ MANDATORY SKILLSET & EXPERTISE:
-${skillsText}
-
-💡 WHY JOIN US:
-${whyJoinText}
-
-📩 HOW TO APPLY & REFER:
-Review full requirement details and submit your application directly via our career portal:
-👉 ${currentUrl}
-
-Interested candidates or referrals, connect with our Talent Acquisition team:
-👤 TA Specialist / Recruiter: ${job.recruiterOwner}
-
-#Hiring #${roleTag} #${domainTag} #SemiconductorJobs #TechCareers #JobOpportunity #Recruitment #SICareer #VLSIJobs`
-}
 
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -105,12 +43,7 @@ export function JobDetailPage() {
   const [activeTab, setActiveTab] = useState<"details" | "applications">("details")
 
   const [copiedLink, setCopiedLink] = useState(false)
-  const [copiedLinkedIn, setCopiedLinkedIn] = useState(false)
   const [applied, setApplied] = useState(false)
-
-  // LinkedIn Modal & Custom Post Text State
-  const [isLinkedInModalOpen, setIsLinkedInModalOpen] = useState(false)
-  const [linkedInText, setLinkedInText] = useState("")
 
   // Applications & Candidates state
   const [applications, setApplications] = useState<CandidateApplicationRecord[]>([])
@@ -131,6 +64,27 @@ export function JobDetailPage() {
       setApplications(list)
       setLoadingApps(false)
     })
+
+    // Realtime subscription for LinkedIn status updates from Make.com
+    const channel = supabase
+      .channel(`job_detail_${id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "job_requirements" },
+        (payload) => {
+          if (payload.new && (payload.new.id === id || payload.new.req_id === id)) {
+            fetchAllJobs().then((list) => {
+              const found = list.find((j) => j.id === id || j.reqId === id)
+              if (found) setJob(found)
+            })
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [id])
 
   const appliedCandidates = applications.filter(
@@ -167,25 +121,7 @@ export function JobDetailPage() {
     setTimeout(() => setCopiedLink(false), 2500)
   }
 
-  const handleOpenLinkedInModal = () => {
-    const content = generateLinkedInPostContent(job)
-    setLinkedInText(content)
-    setIsLinkedInModalOpen(true)
-  }
 
-  const handleCopyLinkedInText = () => {
-    navigator.clipboard.writeText(linkedInText)
-    setCopiedLinkedIn(true)
-    setTimeout(() => setCopiedLinkedIn(false), 2500)
-  }
-
-  const handleOpenLinkedInShareWindow = () => {
-    handleCopyLinkedInText()
-    const shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
-      window.location.href
-    )}`
-    window.open(shareUrl, "_blank", "noopener,noreferrer")
-  }
 
   const handleApply = () => {
     setApplied(true)
@@ -220,6 +156,13 @@ export function JobDetailPage() {
               Status: {job.status}
             </span>
 
+            <LinkedInStatusBadge
+              status={job.linkedinPostStatus}
+              errorMessage={job.linkedinErrorMessage}
+              postedAt={job.linkedinPostedAt}
+              updatedAt={job.linkedinUpdatedAt}
+            />
+
             <Button
               variant="outline"
               size="sm"
@@ -244,15 +187,7 @@ export function JobDetailPage() {
               <span>{copiedLink ? "Copied Link" : "Copy Link"}</span>
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenLinkedInModal}
-              className="h-9 border-gray-200 hover:bg-gray-100 text-xs font-semibold rounded-sm cursor-pointer inline-flex items-center gap-1.5"
-            >
-              <Share2 className="w-3.5 h-3.5 text-[#0077B5]" />
-              <span>Share LinkedIn</span>
-            </Button>
+
 
             <Button
               onClick={handleApply}
@@ -279,6 +214,31 @@ export function JobDetailPage() {
             </Button>
           </div>
         </div>
+
+        {/* LinkedIn Posting Alert Banner when Failed */}
+        {job.linkedinPostStatus === "Failed" && (
+          <div className="bg-rose-50 border border-rose-200 rounded-sm p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-900 text-sm">
+                  LinkedIn Posting Failed
+                </p>
+                <p className="text-rose-700 mt-1 font-mono text-[11px] break-words leading-relaxed">
+                  {job.linkedinErrorMessage || "No specific error message returned by Make.com."}
+                </p>
+                <p className="text-gray-500 text-[11px] mt-1">
+                  Check Make.com scenario execution or LinkedIn account permissions to reconnect.
+                </p>
+              </div>
+            </div>
+            {job.linkedinUpdatedAt && (
+              <span className="text-[10px] text-gray-500 font-mono shrink-0">
+                Failed at: {new Date(job.linkedinUpdatedAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Top Header & Domain */}
         <div className="flex flex-col gap-3">
@@ -659,77 +619,6 @@ export function JobDetailPage() {
         )}
       </div>
 
-      {/* Professional LinkedIn Share Modal */}
-      <Dialog open={isLinkedInModalOpen} onOpenChange={setIsLinkedInModalOpen}>
-        <DialogContent className="w-[55vw] sm:max-w-[95vw]  h-[82vh] max-h-[90vh] flex flex-col p-6 sm:p-7 bg-white rounded-2xl border border-gray-200 shadow-2xl overflow-hidden font-sans">
-          <DialogHeader className="shrink-0 pb-2 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#0077B5] shrink-0">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg sm:text-xl font-extrabold text-gray-900">
-                  Professional LinkedIn Post Content
-                </DialogTitle>
-                <p className="text-xs text-gray-500 font-medium">
-                  Review and customize the AI-generated high-converting recruiter post.
-                </p>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-2 mt-4 flex-1 min-h-0">
-            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider shrink-0">
-              Generated Post Content (Editable)
-            </label>
-            <Textarea
-              value={linkedInText}
-              onChange={(e) => setLinkedInText(e.target.value)}
-              className="text-xs sm:text-sm font-mono bg-gray-50/80 border border-gray-200 rounded-xl p-4 sm:p-5 leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#0077B5]/20 flex-1 min-h-0 h-full overflow-y-auto resize-none field-sizing-fixed shadow-inner"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-100 mt-4 shrink-0">
-            <span className="text-xs text-gray-500 font-medium">
-              {copiedLinkedIn ? (
-                <span className="text-emerald-600 font-bold inline-flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" /> Copied to clipboard!
-                </span>
-              ) : (
-                "Copy post text or open LinkedIn directly to publish."
-              )}
-            </span>
-
-            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-              <Button
-                variant="outline"
-                onClick={handleCopyLinkedInText}
-                className="h-10 px-4 border-gray-200 hover:bg-gray-100 text-xs sm:text-sm font-semibold rounded-xl cursor-pointer"
-              >
-                {copiedLinkedIn ? (
-                  <>
-                    <Check className="w-4 h-4 text-emerald-600 mr-1.5" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 text-gray-600 mr-1.5" />
-                    <span>Copy Text Only</span>
-                  </>
-                )}
-              </Button>
-
-              <Button
-                onClick={handleOpenLinkedInShareWindow}
-                className="h-10 px-5 bg-[#0077B5] hover:bg-[#005E93] text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs cursor-pointer inline-flex items-center gap-2"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Share to LinkedIn</span>
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </MainLayout>
   )
 }

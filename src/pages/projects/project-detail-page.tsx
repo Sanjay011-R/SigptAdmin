@@ -101,7 +101,7 @@ export function ProjectDetailPage() {
             className="inline-flex items-center gap-2 px-5 h-10 bg-[#161C2D] hover:bg-[#FF7A00] text-white font-mono text-xs font-bold tracking-wider uppercase transition-colors duration-300 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to recruitment projects
+            Back to projects
           </button>
         </div>
       </MainLayout>
@@ -185,7 +185,7 @@ export function ProjectDetailPage() {
             )}
 
             {/* Metadata — plain hairline-divided row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-[#E8E1D6] divide-x divide-[#E8E1D6]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 border-t border-b border-[#E8E1D6] divide-y sm:divide-y-0 sm:divide-x divide-[#E8E1D6]">
               <div className="py-4 px-4 sm:px-6 first:pl-0">
                 <div className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#9A9284] mb-1">
                   Department
@@ -199,15 +199,7 @@ export function ProjectDetailPage() {
                   Project Lead
                 </div>
                 <div className="font-sans text-sm font-semibold text-[#FF7A00] truncate">
-                  {project.postedBy || "Recruiter"}
-                </div>
-              </div>
-              <div className="py-4 px-4 sm:px-6">
-                <div className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#9A9284] mb-1">
-                  Headcount / Openings
-                </div>
-                <div className="font-sans text-sm font-semibold text-[#161C2D]">
-                  {project.openPositions} Position{project.openPositions > 1 ? "s" : ""}
+                  {project.postedBy || "sigptit (Super Admin)"}
                 </div>
               </div>
               <div className="py-4 px-4 sm:px-6">

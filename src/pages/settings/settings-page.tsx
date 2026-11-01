@@ -18,23 +18,51 @@ import {
   Database,
   Barcode,
   Hash,
+  Sparkles,
+  Pencil,
+  ShieldCheck,
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox"
+import { executeSystemAutoPurge, type AutoPurgeResult } from "@/services/auto-purge-service"
+
+const sequencePaddingOptions: ComboboxOption[] = [
+  { value: "3 digits (001)", label: "3 Digits (001)" },
+  { value: "4 digits (0001)", label: "4 Digits (0001)" },
+  { value: "5 digits (00001)", label: "5 Digits (00001)" },
+]
+
+const candidateRetentionOptions: ComboboxOption[] = [
+  { value: "never", label: "Never Delete (Keep Indefinitely)" },
+  { value: "90 days", label: "90 Days (3 Months)" },
+  { value: "180 days", label: "180 Days (6 Months — Recommended PII Compliance)" },
+  { value: "365 days", label: "365 Days (1 Year)" },
+]
+
+const auditRetentionOptions: ComboboxOption[] = [
+  { value: "never", label: "Never Delete (Keep Indefinitely)" },
+  { value: "30 days", label: "30 Days (1 Month)" },
+  { value: "45 days", label: "45 Days (Recommended Default)" },
+  { value: "60 days", label: "60 Days (2 Months)" },
+  { value: "90 days", label: "90 Days (3 Months)" },
+  { value: "180 days", label: "180 Days (6 Months)" },
+  { value: "365 days", label: "365 Days (1 Year)" },
+]
 
 export function SettingsPage() {
   const { logPageView, logStateMutation } = useAuditLogger()
   const [activeTab, setActiveTab] = useState<
-    "jobs" | "sequences" | "candidates" | "requests"
-  >("jobs")
+    "sequences" | "candidates" | "requests" | "audit"
+  >("sequences")
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-
-  // Job Postings Configuration State
-  const [jobAutoExpiry, setJobAutoExpiry] = useState("30")
-  const [jobAutoDeleteDays, setJobAutoDeleteDays] = useState("60 days")
-  const [defaultJobStatus, setDefaultJobStatus] = useState("Active")
-
-  const [autoDeleteJobData, setAutoDeleteJobData] = useState(true)
 
   // Job ID Identifier Format Pattern (SIGPT-[DOMAIN]-[YEAR]-[SEQUENCE])
   const [jobIdPrefix, setJobIdPrefix] = useState("SIGPT")
@@ -71,7 +99,113 @@ export function SettingsPage() {
         year: new Date().getFullYear(),
         current_sequence: 0,
       })
+
+      await logStateMutation({
+        category: "System",
+        action: "Domain Sequence Added",
+        type: "create",
+        targetEntity: `Domain ${code}`,
+        details: `Added new domain sequence code '${code}'.`,
+      })
     } catch {}
+  }
+
+  // Domain Edit & Delete State & Handlers
+  const [editingDomain, setEditingDomain] = useState<{
+    oldCode: string
+    domain_code: string
+    current_sequence: number
+  } | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  const handleDeleteDomain = async (code: string) => {
+    if (!window.confirm(`Are you sure you want to delete domain sequence "${code}"?`)) return
+
+    setDomainSequences((prev) => prev.filter((d) => d.domain_code !== code))
+
+    try {
+      await supabase
+        .from("job_domain_sequences")
+        .delete()
+        .eq("domain_code", code)
+        .eq("year", new Date().getFullYear())
+
+      await logStateMutation({
+        category: "System",
+        action: "Domain Sequence Deleted",
+        type: "delete",
+        targetEntity: `Domain ${code}`,
+        details: `Deleted domain sequence '${code}' for year ${new Date().getFullYear()}.`,
+      })
+    } catch (err) {
+      console.error("[SettingsPage] Error deleting domain sequence:", err)
+    }
+  }
+
+  const handleSaveEditDomain = async () => {
+    if (!editingDomain) return
+    const newCode = editingDomain.domain_code.trim().toUpperCase()
+    const oldCode = editingDomain.oldCode
+    const newSeq = Math.max(0, Number(editingDomain.current_sequence) || 0)
+
+    if (!newCode) {
+      setEditError("Domain code cannot be empty.")
+      return
+    }
+
+    if (newCode !== oldCode && domainSequences.some((d) => d.domain_code === newCode)) {
+      setEditError(`Domain code "${newCode}" already exists.`)
+      return
+    }
+
+    const currentYear = new Date().getFullYear()
+
+    setDomainSequences((prev) =>
+      prev.map((d) =>
+        d.domain_code === oldCode
+          ? { domain_code: newCode, current_sequence: newSeq }
+          : d
+      )
+    )
+
+    try {
+      if (newCode !== oldCode) {
+        await supabase
+          .from("job_domain_sequences")
+          .delete()
+          .eq("domain_code", oldCode)
+          .eq("year", currentYear)
+
+        await supabase.from("job_domain_sequences").upsert({
+          domain_code: newCode,
+          domain_name: newCode,
+          year: currentYear,
+          current_sequence: newSeq,
+          updated_at: new Date().toISOString(),
+        })
+      } else {
+        await supabase.from("job_domain_sequences").upsert({
+          domain_code: newCode,
+          year: currentYear,
+          current_sequence: newSeq,
+          updated_at: new Date().toISOString(),
+        })
+      }
+
+      await logStateMutation({
+        category: "System",
+        action: "Domain Sequence Updated",
+        type: "update",
+        targetEntity: `Domain ${newCode}`,
+        details: `Updated domain sequence for '${oldCode}' -> code: '${newCode}', sequence: #${newSeq}.`,
+      })
+
+      setEditingDomain(null)
+      setEditError(null)
+    } catch (err: any) {
+      console.error("[SettingsPage] Error saving domain sequence:", err)
+      setEditError(err?.message || "Failed to update domain sequence.")
+    }
   }
 
   // Candidate Settings State
@@ -91,11 +225,35 @@ export function SettingsPage() {
 
   // Projects & Audit Settings State
   const [projectVisibility, setProjectVisibility] = useState("Internal Team")
-  const [auditLogRetention, setAuditLogRetention] = useState("180 days")
+  const [auditLogRetention, setAuditLogRetention] = useState("45 days")
+  const [autoDeleteAuditLogs, setAutoDeleteAuditLogs] = useState(true)
   const [enforce2FA, setEnforce2FA] = useState(false)
 
   const [savedSuccess, setSavedSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [purging, setPurging] = useState(false)
+  const [purgeResult, setPurgeResult] = useState<AutoPurgeResult | null>(null)
+
+  const handleRunAutoPurge = async () => {
+    setPurging(true)
+    setPurgeResult(null)
+    setErrorMessage(null)
+    try {
+      const res = await executeSystemAutoPurge()
+      setPurgeResult(res)
+      await logStateMutation({
+        category: "System",
+        action: "System Auto-Purge Executed",
+        type: "delete",
+        targetEntity: "Database Retention Rules",
+        details: `Purged database records: ${res.applicationsDeleted} candidate applications purged, ${res.requestsDeleted} old requests purged, ${res.auditLogsDeleted} audit logs & view clutter purged.`,
+      })
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Failed to execute auto-purge.")
+    } finally {
+      setPurging(false)
+    }
+  }
 
   // Fetch settings from Supabase DB
   const fetchSettingsFromDb = async () => {
@@ -113,11 +271,6 @@ export function SettingsPage() {
       }
 
       if (data) {
-        setDefaultJobStatus(data.job_default_status || "Active")
-        setJobAutoExpiry(String(data.job_auto_expiry ?? 30))
-        setJobAutoDeleteDays(data.job_auto_delete_days || "60 days")
-        setAutoDeleteJobData(data.auto_delete_job_data ?? true)
-
         setJobIdPrefix(data.job_id_prefix || "SIGPT")
         setJobIdDomain(data.job_id_domain || "ENG")
         setJobIdSeqPadding(data.job_id_seq_padding || "3 digits (001)")
@@ -134,7 +287,8 @@ export function SettingsPage() {
 
 
         setProjectVisibility(data.project_visibility || "Internal Team")
-        setAuditLogRetention(data.audit_log_retention || "180 days")
+        setAuditLogRetention(data.audit_log_retention || "45 days")
+        setAutoDeleteAuditLogs(data.auto_delete_audit_logs ?? true)
         setEnforce2FA(data.enforce_2fa ?? false)
       }
 
@@ -170,11 +324,6 @@ export function SettingsPage() {
 
     const payload = {
       id: "default",
-      job_default_status: defaultJobStatus,
-      job_auto_expiry: parseInt(jobAutoExpiry, 10) || 30,
-      job_auto_delete_days: jobAutoDeleteDays,
-      auto_delete_job_data: autoDeleteJobData,
-
       job_id_prefix: jobIdPrefix,
       job_id_domain: jobIdDomain,
       job_id_seq_padding: jobIdSeqPadding,
@@ -192,6 +341,7 @@ export function SettingsPage() {
 
       project_visibility: projectVisibility,
       audit_log_retention: auditLogRetention,
+      auto_delete_audit_logs: autoDeleteAuditLogs,
       enforce_2fa: enforce2FA,
       updated_at: new Date().toISOString(),
     }
@@ -232,25 +382,64 @@ export function SettingsPage() {
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">System Settings</h1>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
-              Configure job postings, auto-purge timelines, request retention, and security rules.
+              Configure identifier sequences, application retentions, and request rules.
             </p>
           </div>
 
-          <Button
-            type="submit"
-            form="settings-form"
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="h-10 px-6 bg-[#FF7F50] hover:bg-[#E56A3C] text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            <span>{saving ? "Saving..." : "Save System Settings"}</span>
-          </Button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRunAutoPurge}
+              disabled={purging || saving}
+              className="h-10 px-4 border-gray-200 hover:bg-gray-50 text-gray-700 font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-2xs"
+              title="Execute auto-purge deletion rules immediately based on active thresholds"
+            >
+              {purging ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#FF7F50]" />
+              ) : (
+                <Trash2 className="w-4 h-4 text-gray-500" />
+              )}
+              <span>{purging ? "Running Purge..." : "Run Cleanup Now"}</span>
+            </Button>
+
+            <Button
+              type="submit"
+              form="settings-form"
+              onClick={handleSaveSettings}
+              disabled={saving || purging}
+              className="h-10 px-6 bg-[#FF7F50] hover:bg-[#E56A3C] text-white font-bold text-xs rounded-xl flex items-center gap-2 cursor-pointer shadow-xs"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span>{saving ? "Saving..." : "Save System Settings"}</span>
+            </Button>
+          </div>
         </div>
+
+        {/* Purge Result Notification Banner */}
+        {purgeResult && (
+          <div className="bg-sky-50 border border-sky-200 text-sky-950 p-4 rounded-xl flex items-center justify-between gap-3 text-xs font-semibold animate-in fade-in-0 duration-200">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-sky-600 shrink-0" />
+              <span>
+                Auto-Purge Executed: <strong>{purgeResult.applicationsDeleted}</strong> candidate applications purged,{" "}
+                <strong>{purgeResult.requestsDeleted}</strong> requests purged,{" "}
+                <strong>{purgeResult.auditLogsDeleted}</strong> audit logs purged.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPurgeResult(null)}
+              className="text-sky-700 hover:text-sky-900 text-xs font-bold underline cursor-pointer shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Saved Success Notification Banner */}
         {savedSuccess && (
@@ -270,10 +459,10 @@ export function SettingsPage() {
         {/* CONFIGURATION TABS NAVIGATION */}
         <div className="bg-white p-1.5 rounded-2xl border border-gray-200/80 shadow-2xs flex items-center gap-1 overflow-x-auto">
           {[
-            { id: "jobs", label: "Job Postings", icon: Briefcase },
             { id: "sequences", label: "Job ID & Sequences", icon: Barcode },
             { id: "candidates", label: "Candidates & Applications", icon: Users },
             { id: "requests", label: "Client Requests", icon: MessageSquare },
+            { id: "audit", label: "Audit Logs & Retention", icon: ShieldCheck },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -293,84 +482,6 @@ export function SettingsPage() {
 
         {/* TAB CONTENT CARDS */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-2xs flex flex-col gap-6">
-          {/* TAB 1: JOB POSTINGS CONFIGURATION */}
-          {activeTab === "jobs" && (
-            <div className="flex flex-col gap-5 text-xs font-medium">
-              <div className="pb-3 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-extrabold text-gray-900 flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-[#FF7F50]" />
-                    <span>Job Posting Defaults &amp; Database Auto-Deletion</span>
-                  </h3>
-                  <p className="text-xs text-gray-500 font-medium mt-0.5">
-                    Configure default creation status, job auto-expiry, and database purge schedules.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-700">Default Job Status on Creation</label>
-                  <select
-                    value={defaultJobStatus}
-                    onChange={(e) => setDefaultJobStatus(e.target.value)}
-                    className="h-10 px-3 text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl outline-none cursor-pointer"
-                  >
-                    <option value="Active">Active (Live immediately)</option>
-                    <option value="Draft">Draft (Requires recruiter review)</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-700">Auto-Expiry Period (Days)</label>
-                  <Input
-                    type="number"
-                    value={jobAutoExpiry}
-                    onChange={(e) => setJobAutoExpiry(e.target.value)}
-                    placeholder="30"
-                    className="h-10 text-xs rounded-xl bg-gray-50 border-gray-200 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-700">Auto-Delete Expired Jobs</label>
-                  <select
-                    value={jobAutoDeleteDays}
-                    onChange={(e) => setJobAutoDeleteDays(e.target.value)}
-                    className="h-10 px-3 text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl outline-none cursor-pointer"
-                  >
-                    <option value="30 days">Auto-Delete 30 Days after Expiry</option>
-                    <option value="60 days">Auto-Delete 60 Days after Expiry (Default)</option>
-                    <option value="90 days">Auto-Delete 90 Days after Expiry</option>
-                    <option value="180 days">Auto-Delete 180 Days after Expiry</option>
-                  </select>
-                </div>
-
-              </div>
-
-              <div className="p-4 bg-amber-50/70 rounded-xl border border-amber-200/80 flex items-center justify-between gap-4">
-                <div className="flex flex-col">
-                  <span className="font-bold text-amber-950 flex items-center gap-1.5">
-                    <Trash2 className="w-4 h-4 text-amber-700" />
-                    Auto-Delete Expired Job Postings
-                  </span>
-                  <span className="text-[11px] text-amber-800 mt-0.5">
-                    Automatically purge old expired job postings and associated records after retention threshold.
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={autoDeleteJobData}
-                  onChange={(e) => setAutoDeleteJobData(e.target.checked)}
-                  className="w-4 h-4 accent-amber-600 cursor-pointer"
-                />
-              </div>
-
-
-            </div>
-          )}
 
           {/* TAB 2: DEDICATED JOB ID & SEQUENCES CONFIGURATION */}
           {activeTab === "sequences" && (
@@ -416,15 +527,16 @@ export function SettingsPage() {
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[11px] font-bold text-gray-700">Sequence Padding</label>
-                    <select
+                    <Combobox
+                      options={sequencePaddingOptions}
                       value={jobIdSeqPadding}
-                      onChange={(e) => setJobIdSeqPadding(e.target.value)}
-                      className="h-10 px-3 text-xs font-bold text-gray-900 bg-white border border-gray-200 rounded-xl outline-none cursor-pointer font-mono"
-                    >
-                      <option value="3 digits (001)">3 Digits (001)</option>
-                      <option value="4 digits (0001)">4 Digits (0001)</option>
-                      <option value="5 digits (00001)">5 Digits (00001)</option>
-                    </select>
+                      onValueChange={(val) => setJobIdSeqPadding(val)}
+                      allowCustom={false}
+                      placeholder="Select sequence padding..."
+                      searchPlaceholder="Search padding..."
+                      className="h-10 text-xs font-bold rounded-xl bg-white border-gray-200 shadow-2xs font-mono"
+                      popoverClassName="min-w-[240px] rounded-2xl"
+                    />
                   </div>
                 </div>
 
@@ -471,15 +583,40 @@ export function SettingsPage() {
                       return (
                         <div
                           key={seq.domain_code}
-                          className="p-3.5 bg-white rounded-xl border border-gray-200/80 flex flex-col gap-1.5 shadow-2xs hover:border-gray-300 transition-all"
+                          className="p-3.5 bg-white rounded-xl border border-gray-200/80 flex flex-col gap-1.5 shadow-2xs hover:border-gray-300 transition-all group"
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-extrabold text-[#FF7F50] font-mono">
                               {seq.domain_code}
                             </span>
-                            <span className="text-[10px] text-gray-500 font-mono font-medium">
-                              Current: #{seq.current_sequence || 0}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-gray-500 font-mono font-medium mr-0.5">
+                                Current: #{seq.current_sequence || 0}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditError(null)
+                                  setEditingDomain({
+                                    oldCode: seq.domain_code,
+                                    domain_code: seq.domain_code,
+                                    current_sequence: seq.current_sequence || 0,
+                                  })
+                                }}
+                                className="p-1 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+                                title={`Edit ${seq.domain_code}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDomain(seq.domain_code)}
+                                className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                                title={`Delete ${seq.domain_code}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                           <div className="flex flex-col pt-0.5">
                             <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
@@ -532,15 +669,16 @@ export function SettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-gray-700">Candidate Data Retention Period</label>
-                  <select
+                  <Combobox
+                    options={candidateRetentionOptions}
                     value={candidatePurgeRetention}
-                    onChange={(e) => setCandidatePurgeRetention(e.target.value)}
-                    className="h-10 px-3 text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl outline-none cursor-pointer"
-                  >
-                    <option value="90 days">90 Days (3 Months)</option>
-                    <option value="180 days">180 Days (6 Months — Recommended PII Compliance)</option>
-                    <option value="365 days">365 Days (1 Year)</option>
-                  </select>
+                    onValueChange={(val) => setCandidatePurgeRetention(val)}
+                    allowCustom={false}
+                    placeholder="Select candidate retention..."
+                    searchPlaceholder="Search retention threshold..."
+                    className="h-10 text-xs font-bold rounded-xl bg-gray-50 border-gray-200 shadow-2xs"
+                    popoverClassName="min-w-[320px] rounded-2xl"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -564,22 +702,35 @@ export function SettingsPage() {
                 />
               </div>
 
-              {/* 6 MONTH AUTO-DELETE CANDIDATE DATA HIGHLIGHT */}
-              <div className="p-4 bg-rose-50/70 rounded-xl border border-rose-200/80 flex items-center justify-between gap-4">
+              {/* AUTO-DELETE CANDIDATE DATA HIGHLIGHT */}
+              <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                candidatePurgeRetention === "never"
+                  ? "bg-gray-50 border-gray-200 opacity-70"
+                  : "bg-rose-50/70 border-rose-200/80"
+              }`}>
                 <div className="flex flex-col">
-                  <span className="font-bold text-rose-950 flex items-center gap-1.5">
-                    <Trash2 className="w-4 h-4 text-rose-600" />
-                    Auto-Delete Candidate Applications &amp; Resumes after 6 Months (180 Days)
+                  <span className={`font-bold flex items-center gap-1.5 ${
+                    candidatePurgeRetention === "never" ? "text-gray-700" : "text-rose-950"
+                  }`}>
+                    <Trash2 className={`w-4 h-4 ${candidatePurgeRetention === "never" ? "text-gray-400" : "text-rose-600"}`} />
+                    {candidatePurgeRetention === "never"
+                      ? "Auto-Delete Candidate Applications & Resumes (Disabled)"
+                      : `Auto-Delete Candidate Applications & Resumes after ${candidatePurgeRetention}`}
                   </span>
-                  <span className="text-[11px] text-rose-800 mt-0.5">
-                    Automatically remove candidate application entries, personal contact info, and stored resume PDF files from database after 6 months.
+                  <span className={`text-[11px] mt-0.5 ${
+                    candidatePurgeRetention === "never" ? "text-gray-500" : "text-rose-800"
+                  }`}>
+                    {candidatePurgeRetention === "never"
+                      ? "Retention is set to 'Never Delete'. Candidate records and uploaded resumes will never be deleted automatically."
+                      : `Automatically remove candidate application entries, personal contact info, and stored resume PDF files from database after ${candidatePurgeRetention}.`}
                   </span>
                 </div>
                 <input
                   type="checkbox"
-                  checked={autoDeleteCandidateData}
+                  disabled={candidatePurgeRetention === "never"}
+                  checked={candidatePurgeRetention !== "never" && autoDeleteCandidateData}
                   onChange={(e) => setAutoDeleteCandidateData(e.target.checked)}
-                  className="w-4 h-4 accent-rose-600 cursor-pointer"
+                  className="w-4 h-4 accent-rose-600 cursor-pointer disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -596,7 +747,7 @@ export function SettingsPage() {
                   <span>Client Request &amp; Proposal Settings</span>
                 </h3>
                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                  Configure meeting slot defaults, PII retention cleanups, and corporate notification dispatchers.
+                  Configure client request data retention schedules and cleanups.
                 </p>
               </div>
 
@@ -610,25 +761,73 @@ export function SettingsPage() {
                     className="h-10 text-xs rounded-xl bg-gray-50 border-gray-200 font-mono"
                   />
                 </div>
+              </div>
+            </div>
+          )}
 
+          {/* TAB 4: AUDIT LOGS & RETENTION SETTINGS */}
+          {activeTab === "audit" && (
+            <div className="flex flex-col gap-5 text-xs font-medium">
+              <div className="pb-3 border-b border-gray-100">
+                <h3 className="text-sm font-extrabold text-gray-900 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#FF7F50]" />
+                  <span>Audit Trail Retention &amp; Automatic Cleanup</span>
+                </h3>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  Set retention threshold for state mutation logs. Page access reads are excluded by default.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-700">Default Meeting Slot Duration</label>
-                  <select
-                    value={defaultSlotDuration}
-                    onChange={(e) => setDefaultSlotDuration(e.target.value)}
-                    className="h-10 px-3 text-xs font-bold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl outline-none cursor-pointer"
-                  >
-                    <option value="15 mins">15 Minutes</option>
-                    <option value="30 mins">30 Minutes</option>
-                    <option value="45 mins">45 Minutes</option>
-                    <option value="60 mins">60 Minutes</option>
-                  </select>
+                  <label className="text-xs font-bold text-gray-700">Audit Log Retention Period</label>
+                  <Combobox
+                    options={auditRetentionOptions}
+                    value={auditLogRetention}
+                    onValueChange={(val) => setAuditLogRetention(val)}
+                    allowCustom={false}
+                    placeholder="Select audit retention..."
+                    searchPlaceholder="Search retention threshold..."
+                    className="h-10 text-xs font-bold rounded-xl bg-gray-50 border-gray-200 shadow-2xs"
+                    popoverClassName="min-w-[320px] rounded-2xl"
+                  />
+                  <span className="text-[11px] text-gray-400">
+                    System mutation logs older than this duration will be automatically deleted.
+                  </span>
                 </div>
               </div>
 
-
-
-
+              {/* AUTO-DELETE AUDIT LOGS HIGHLIGHT */}
+              <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                auditLogRetention === "never"
+                  ? "bg-gray-50 border-gray-200 opacity-70"
+                  : "bg-amber-50/70 border-amber-200/80"
+              }`}>
+                <div className="flex flex-col">
+                  <span className={`font-bold flex items-center gap-1.5 ${
+                    auditLogRetention === "never" ? "text-gray-700" : "text-amber-950"
+                  }`}>
+                    <Trash2 className={`w-4 h-4 ${auditLogRetention === "never" ? "text-gray-400" : "text-amber-600"}`} />
+                    {auditLogRetention === "never"
+                      ? "Auto-Delete Audit Logs (Disabled)"
+                      : `Auto-Delete Audit Logs After ${auditLogRetention}`}
+                  </span>
+                  <span className={`text-[11px] mt-0.5 ${
+                    auditLogRetention === "never" ? "text-gray-500" : "text-amber-800"
+                  }`}>
+                    {auditLogRetention === "never"
+                      ? "Retention is set to 'Never Delete'. All mutation logs and state diffs are preserved permanently."
+                      : `Automatically purge mutation logs and state diffs from database after ${auditLogRetention}. Page view clutter is dropped permanently.`}
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  disabled={auditLogRetention === "never"}
+                  checked={auditLogRetention !== "never" && autoDeleteAuditLogs}
+                  onChange={(e) => setAutoDeleteAuditLogs(e.target.checked)}
+                  className="w-4 h-4 accent-amber-600 cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
           )}
 
@@ -649,6 +848,105 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* EDIT DOMAIN SEQUENCE MODAL */}
+      <Dialog open={!!editingDomain} onOpenChange={(open) => !open && setEditingDomain(null)}>
+        <DialogContent className="sm:max-w-md p-6 bg-white rounded-3xl border border-gray-200/90 shadow-2xl overflow-hidden font-sans">
+          <DialogHeader className="pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#0B192C] text-[#FF7F50] flex items-center justify-center shrink-0 shadow-sm">
+                <Barcode className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-extrabold text-gray-900 tracking-tight">
+                  Edit Domain Sequence
+                </DialogTitle>
+                <DialogDescription className="text-xs text-gray-500 font-medium mt-0.5">
+                  Update identifier code and counter for {editingDomain?.oldCode}.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {editingDomain && (
+            <div className="flex flex-col gap-4 pt-3 text-xs">
+              {editError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-700">Domain Code Identifier</label>
+                <Input
+                  type="text"
+                  value={editingDomain.domain_code}
+                  onChange={(e) => {
+                    setEditError(null)
+                    setEditingDomain({ ...editingDomain, domain_code: e.target.value.toUpperCase() })
+                  }}
+                  placeholder="e.g. ENG, PD, HR"
+                  className="h-10 text-xs font-mono font-bold bg-gray-50 border-gray-200 uppercase"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-700">Current Sequence Counter</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editingDomain.current_sequence}
+                  onChange={(e) => {
+                    setEditError(null)
+                    setEditingDomain({ ...editingDomain, current_sequence: parseInt(e.target.value, 10) || 0 })
+                  }}
+                  className="h-10 text-xs font-mono font-bold bg-gray-50 border-gray-200"
+                />
+                <span className="text-[11px] text-gray-400">
+                  Next generated job ID will be sequence #{Number(editingDomain.current_sequence) + 1}
+                </span>
+              </div>
+
+              {/* Live Preview */}
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200/80 flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                  Live Next Job ID Preview:
+                </span>
+                <span className="font-mono text-xs font-extrabold text-[#0B192C]">
+                  {jobIdPrefix || "SIGPT"}-{editingDomain.domain_code.trim() || "ENG"}-{new Date().getFullYear()}-
+                  {jobIdSeqPadding.includes("4")
+                    ? String((Number(editingDomain.current_sequence) || 0) + 1).padStart(4, "0")
+                    : jobIdSeqPadding.includes("5")
+                    ? String((Number(editingDomain.current_sequence) || 0) + 1).padStart(5, "0")
+                    : String((Number(editingDomain.current_sequence) || 0) + 1).padStart(3, "0")}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingDomain(null)
+                    setEditError(null)
+                  }}
+                  className="h-9 px-4 text-xs font-semibold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveEditDomain}
+                  className="h-9 px-5 bg-[#0B192C] hover:bg-[#152844] text-white text-xs font-bold rounded-xl cursor-pointer shadow-xs"
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   )
 }

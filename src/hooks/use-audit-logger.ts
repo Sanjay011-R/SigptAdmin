@@ -13,22 +13,12 @@ export function useAuditLogger() {
   const userRole = role || "Recruiter"
 
   const logPageView = useCallback(
-    async (pageTitle: string) => {
-      // Don't log page views while auth session is initializing or if no user is logged in
-      if (loading || !userEmail) return
-
-      await recordAuditLogAsync({
-        action: `Page Accessed: ${pageTitle}`,
-        category: "System",
-        type: "access",
-        targetEntity: pageTitle,
-        details: `User ${userName || userEmail} accessed route '${pageTitle}'.`,
-        actorName: userName || userEmail,
-        actorEmail: userEmail,
-        actorRole: userRole,
-      })
+    async (_pageTitle: string) => {
+      // Page views excluded from DB audit logs per retention policy
+      // Only state mutations (create, update, delete, security) are recorded
+      return
     },
-    [loading, userName, userEmail, userRole]
+    []
   )
 
   const logStateMutation = useCallback(

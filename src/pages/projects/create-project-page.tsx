@@ -151,9 +151,11 @@ function renderFormattedContent(rawText: string) {
 export function CreateProjectPage() {
   const { id } = useParams<{ id?: string }>()
   const navigate = useNavigate()
-  const { user: authUser } = useAuth()
+  const { user: authUser, role: authRole, displayName } = useAuth()
   const { logPageView, logStateMutation } = useAuditLogger()
   const isEditing = Boolean(id)
+
+  const currentUserDisplayName = displayName || `${authUser?.user_metadata?.full_name || authUser?.email?.split("@")[0] || "User"} (${authRole || "Super Admin"})`
 
   const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor")
   const [saving, setSaving] = useState(false)
@@ -171,9 +173,7 @@ export function CreateProjectPage() {
 
   const [name, setName] = useState("")
   const [department, setDepartment] = useState("Engineering")
-  const [postedBy, setPostedBy] = useState(
-    authUser?.email ? authUser.email.split("@")[0] : ""
-  )
+  const [postedBy, setPostedBy] = useState(currentUserDisplayName)
   const [deadline, setDeadline] = useState("")
   const [status, setStatus] = useState<ProjectRecord["status"]>("Draft")
   const [openPositions, setOpenPositions] = useState(1)
@@ -200,7 +200,7 @@ export function CreateProjectPage() {
         if (existing) {
           setName(existing.name)
           setDepartment(existing.department)
-          setPostedBy(existing.postedBy)
+          setPostedBy(existing.postedBy && existing.postedBy !== "Recruiter" ? existing.postedBy : currentUserDisplayName)
           setDeadline(existing.deadline || "")
           setStatus(existing.status)
           setOpenPositions(existing.openPositions)
@@ -556,11 +556,12 @@ export function CreateProjectPage() {
 
     setSaving(true)
     try {
+      const resolvedPostedBy = postedBy && postedBy !== "Recruiter" ? postedBy : currentUserDisplayName
       const saved = await saveProject({
         id: id || undefined,
         name: name.trim(),
         department,
-        postedBy,
+        postedBy: resolvedPostedBy,
         deadline,
         status: publishStatus,
         openPositions: Number(openPositions),
@@ -1551,19 +1552,13 @@ export function CreateProjectPage() {
                     <label className="font-mono font-bold text-[#9A9284] uppercase tracking-wider text-[10px] flex items-center gap-1">
                       <User className="w-3.5 h-3.5 text-[#FF7A00]" /> Project Lead
                     </label>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="font-mono font-bold text-[#9A9284] uppercase tracking-wider text-[10px]">Status</label>
-                          <select value={status} onChange={(e) => setStatus(e.target.value as ProjectRecord["status"])}
-                            className="h-9 px-2 text-xs font-sans font-bold bg-[#FDF8F1] border border-[#E8E1D6] rounded-lg w-full outline-none text-[#161C2D]">
-                            <option value="Draft">Draft</option>
-                            <option value="Published">Published</option>
-                          </select>
-                        </div>
-
                     <div className="flex flex-col gap-1.5">
-                      <label className="font-mono font-bold text-[#9A9284] uppercase tracking-wider text-[10px]">Headcount</label>
-                      <Input type="number" min={1} value={openPositions} onChange={(e) => setOpenPositions(Number(e.target.value))}
-                        className="h-9 text-xs bg-[#FDF8F1] border-[#E8E1D6] text-center font-mono font-bold text-[#161C2D]" />
+                      <label className="font-mono font-bold text-[#9A9284] uppercase tracking-wider text-[10px]">Status</label>
+                      <select value={status} onChange={(e) => setStatus(e.target.value as ProjectRecord["status"])}
+                        className="h-9 px-2 text-xs font-sans font-bold bg-[#FDF8F1] border border-[#E8E1D6] rounded-lg w-full outline-none text-[#161C2D]">
+                        <option value="Draft">Draft</option>
+                        <option value="Published">Published</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1609,7 +1604,7 @@ export function CreateProjectPage() {
               )}
 
               {/* Metadata Hairline Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-[#E8E1D6] divide-x divide-[#E8E1D6] mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 border-t border-b border-[#E8E1D6] divide-y sm:divide-y-0 sm:divide-x divide-[#E8E1D6] mt-4">
                 <div className="py-3 px-4 first:pl-0">
                   <div className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#9A9284] mb-0.5">
                     Department
@@ -1623,15 +1618,7 @@ export function CreateProjectPage() {
                     Project Lead
                   </div>
                   <div className="font-sans text-xs font-semibold text-[#FF7A00] truncate">
-                    {postedBy || "Recruiter"}
-                  </div>
-                </div>
-                <div className="py-3 px-4">
-                  <div className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#9A9284] mb-0.5">
-                    Headcount
-                  </div>
-                  <div className="font-sans text-xs font-semibold text-[#161C2D]">
-                    {openPositions} Position{openPositions > 1 ? "s" : ""}
+                    {postedBy || currentUserDisplayName}
                   </div>
                 </div>
                 <div className="py-3 px-4">

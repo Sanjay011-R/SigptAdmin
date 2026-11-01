@@ -174,6 +174,8 @@ export async function fetchAuditLogsFromDb(): Promise<AuditLogRecord[]> {
     const { data, error } = await supabase
       .from("audit_logs")
       .select("*")
+      .neq("type", "access")
+      .not("action", "ilike", "Page Accessed:%")
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -193,6 +195,8 @@ export async function fetchRecentAuditLogs(limit: number = 5): Promise<AuditLogR
     const { data, error } = await supabase
       .from("audit_logs")
       .select("*")
+      .neq("type", "access")
+      .not("action", "ilike", "Page Accessed:%")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -218,7 +222,11 @@ export async function fetchAuditLogsPage(
   const to = from + pageSize - 1
 
   try {
-    let query = supabase.from("audit_logs").select("*", { count: "exact" })
+    let query = supabase
+      .from("audit_logs")
+      .select("*", { count: "exact" })
+      .neq("type", "access")
+      .not("action", "ilike", "Page Accessed:%")
 
     if (filters.category && filters.category !== "All") {
       query = query.eq("category", filters.category)
@@ -272,10 +280,10 @@ export async function fetchAuditLogStats(): Promise<AuditLogStats> {
     const twentyFourHoursAgo = new Date(Date.now() - dayMs).toISOString()
 
     const [totalRes, securityRes, actorRes, recentRes] = await Promise.all([
-      supabase.from("audit_logs").select("id", { count: "exact", head: true }),
-      supabase.from("audit_logs").select("id", { count: "exact", head: true }).eq("category", "Security"),
-      supabase.from("audit_logs").select("actor_name").limit(500),
-      supabase.from("audit_logs").select("id", { count: "exact", head: true }).gte("created_at", twentyFourHoursAgo),
+      supabase.from("audit_logs").select("id", { count: "exact", head: true }).neq("type", "access").not("action", "ilike", "Page Accessed:%"),
+      supabase.from("audit_logs").select("id", { count: "exact", head: true }).eq("category", "Security").neq("type", "access").not("action", "ilike", "Page Accessed:%"),
+      supabase.from("audit_logs").select("actor_name").neq("type", "access").not("action", "ilike", "Page Accessed:%").limit(500),
+      supabase.from("audit_logs").select("id", { count: "exact", head: true }).neq("type", "access").not("action", "ilike", "Page Accessed:%").gte("created_at", twentyFourHoursAgo),
     ])
 
     if (totalRes.error || securityRes.error || actorRes.error || recentRes.error) {
@@ -309,6 +317,11 @@ export async function recordAuditLogAsync(log: {
   actorEmail?: string
   actorRole?: string
 }): Promise<void> {
+  // Exclude view events from DB insertion - only state mutations are stored
+  if (log.type === "access" || log.action?.startsWith("Page Accessed:")) {
+    return
+  }
+
   const actorEmail = log.actorEmail || "user@sicareer.com"
   const dedupeKey = `${actorEmail}:${log.action}:${log.targetEntity}`
   const now = Date.now()

@@ -38,6 +38,7 @@ export function useAuth() {
   const [requiresStepUpAuth, setRequiresStepUpAuth] = useState(false)
   const [stepUpReason, setStepUpReason] = useState<string>("")
   const [profile, setProfile] = useState<{
+    fullName?: string
     role?: string
     permissions?: any
   } | null>(null)
@@ -92,12 +93,13 @@ export function useAuth() {
             try {
               const { data: profData } = await supabase
                 .from("profiles")
-                .select("role, permissions")
+                .select("full_name, role, permissions")
                 .eq("id", validation.user.id)
                 .maybeSingle()
 
               if (profData) {
                 setProfile({
+                  fullName: profData.full_name,
                   role: profData.role,
                   permissions: profData.permissions,
                 })
@@ -158,12 +160,13 @@ export function useAuth() {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("role, permissions")
+          .select("full_name, role, permissions")
           .eq("id", user.id)
           .maybeSingle()
 
         if (data && !error) {
           setProfile({
+            fullName: data.full_name,
             role: data.role,
             permissions: data.permissions,
           })
@@ -242,6 +245,14 @@ export function useAuth() {
     setStepUpReason("")
   }
 
+  const userFullName =
+    profile?.fullName ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "User"
+
+  const displayName = `${userFullName} (${effectiveRole})`
+
   return {
     user,
     session,
@@ -256,5 +267,7 @@ export function useAuth() {
     onlineUsers,
     isAuthenticated: !!user,
     validateToken: validateAccessToken,
+    displayName,
+    userFullName,
   }
 }
