@@ -38,7 +38,6 @@ import {
   FileText,
   RadioTower,
   Inbox,
-  RotateCw,
   AlertCircle,
   Terminal,
   Building2,
@@ -341,17 +340,6 @@ export function RequestsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={fetchRequests}
-              disabled={loading}
-              className="h-10 border-gray-200 hover:bg-gray-50 text-xs font-semibold rounded-xl cursor-pointer"
-            >
-              <RotateCw className={`w-4 h-4 mr-1.5 text-gray-500 ${loading ? "animate-spin text-[#FF7F50]" : ""}`} />
-              <span>Refresh Data</span>
-            </Button>
-          </div>
         </div>
 
         {/* Quick Stats Strip */}

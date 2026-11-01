@@ -15,7 +15,6 @@ import {
   Search,
   Download,
   Plus,
-  RefreshCw,
   Eye,
   Pencil,
   Trash2,
@@ -44,7 +43,6 @@ export function ProjectsPage() {
   const [search, setSearch] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("All")
   const [page, setPage] = useState<number>(1)
-  const [loading, setLoading] = useState<boolean>(false)
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [deleting, setDeleting] = useState<boolean>(false)
@@ -82,14 +80,6 @@ export function ProjectsPage() {
       setDeleting(false)
       setDeleteTarget(null)
     }
-  }
-
-  const handleRefresh = async () => {
-    setLoading(true)
-    await loadProjectsList()
-    setTimeout(() => {
-      setLoading(false)
-    }, 300)
   }
 
   const filteredProjects = projects.filter((p) => {
@@ -136,19 +126,6 @@ export function ProjectsPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              className="h-10 border-gray-200 hover:bg-gray-50 text-xs font-semibold rounded-xl cursor-pointer"
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-1.5 text-gray-500 ${
-                  loading ? "animate-spin text-[#FF7F50]" : ""
-                }`}
-              />
-              <span>Refresh</span>
-            </Button>
-
             <Button
               variant="outline"
               onClick={handleExportCSV}
